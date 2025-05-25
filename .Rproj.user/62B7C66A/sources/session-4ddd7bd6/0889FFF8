@@ -1,0 +1,26 @@
+{
+    "id": "0889FFF8",
+    "path": "~/Documents/Data Science and Business Informatics/EXAMS/SDS - Statistics for Data Science/project/conformal_prediction_project/R/install_dependencies.R",
+    "project_path": "R/install_dependencies.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1748179451811.0,
+    "source_on_save": false,
+    "relative_order": 7,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "15,32",
+        "scrollLine": "4"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1748182729,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1748182729648,
+    "read_only": false,
+    "read_only_alternatives": []
+}

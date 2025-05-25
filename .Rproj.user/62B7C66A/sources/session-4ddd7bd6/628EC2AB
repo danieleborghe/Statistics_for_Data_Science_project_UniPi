@@ -1,0 +1,26 @@
+{
+    "id": "628EC2AB",
+    "path": "~/Documents/Data Science and Business Informatics/EXAMS/SDS - Statistics for Data Science/project/conformal_prediction_project/R/evaluation_utils.R",
+    "project_path": "R/evaluation_utils.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1748179093474.0,
+    "source_on_save": false,
+    "relative_order": 6,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "17,79",
+        "scrollLine": "3"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1748183152,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1748183152462,
+    "read_only": false,
+    "read_only_alternatives": []
+}
