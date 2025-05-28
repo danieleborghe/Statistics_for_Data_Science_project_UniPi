@@ -12,6 +12,7 @@
 if (!requireNamespace("e1071", quietly = TRUE)) {
   stop("Package 'e1071' is required but not installed. Please run install_dependencies.R")
 }
+
 library(e1071) # Load the package for e1071::svm
 
 train_svm_model <- function(formula, training_data) {

@@ -24,14 +24,11 @@ calculate_empirical_coverage <- function(prediction_sets_list, true_labels_test)
   # Returns: A single numeric value representing the empirical coverage (0 to 1).
   
   covered_count <- 0
-  # Iterate through each prediction set and corresponding true label
   for (i in 1:length(prediction_sets_list)) {
-    # Check if the true label is present in the prediction set
     if (as.character(true_labels_test[i]) %in% prediction_sets_list[[i]]) {
       covered_count <- covered_count + 1
     }
   }
-  # Coverage is the fraction of correctly covered samples
   empirical_coverage <- covered_count / length(true_labels_test)
   return(empirical_coverage)
 }
@@ -56,7 +53,6 @@ plot_set_size_histogram <- function(set_sizes, main_title = "Prediction Set Size
        main = main_title, 
        xlab = "Set Size", 
        ylab = "Frequency",
-       # Define breaks to ensure each integer set size has its own bar
        breaks = seq(min(set_sizes, na.rm = TRUE)-0.5, max(set_sizes, na.rm = TRUE)+0.5, by=1),
        col = "lightblue",
        border = "black")
@@ -67,28 +63,16 @@ plot_set_size_histogram <- function(set_sizes, main_title = "Prediction Set Size
 calculate_fsc <- function(prediction_sets_list, true_labels_test, feature_vector, 
                           feature_name = "Feature", num_bins_for_continuous = 5) {
   # Purpose: Calculates Feature-Stratified Coverage (FSC).
-  #          It groups data by a specified feature (binning if continuous)
-  #          and computes coverage within each group, then reports the minimum.
-  # Parameters:
-  #   - prediction_sets_list: List of prediction sets.
-  #   - true_labels_test: Vector of true labels.
-  #   - feature_vector: Vector of the feature values to stratify by.
-  #   - feature_name: A string name for the feature (for logging).
-  #   - num_bins_for_continuous: Number of bins if the feature is continuous.
+  # Parameters: (as before)
   # Returns: A list containing 'min_coverage' and 'coverage_by_group' (a data frame).
   
   cat(paste("INFO: Calculating Feature-Stratified Coverage (FSC) for feature '", feature_name, "'...\n", sep=""))
-  
-  if (!requireNamespace("dplyr", quietly = TRUE)) {
-    warning("WARN: dplyr package not installed. FSC might not be calculated robustly. Please install dplyr.")
-  }
   
   df_eval <- data.frame(true_label = as.character(true_labels_test), feature_val = feature_vector)
   df_eval$covered <- sapply(1:length(prediction_sets_list), function(i) {
     as.character(true_labels_test[i]) %in% prediction_sets_list[[i]]
   })
   
-  # Create feature groups (binning for continuous features)
   if (is.numeric(df_eval$feature_val)) {
     unique_numeric_vals <- unique(df_eval$feature_val[!is.na(df_eval$feature_val)])
     if (length(unique_numeric_vals) > num_bins_for_continuous) {
@@ -100,47 +84,49 @@ calculate_fsc <- function(prediction_sets_list, true_labels_test, feature_vector
     df_eval$feature_group <- as.factor(df_eval$feature_val)
   }
   
-  # Calculate coverage per group using dplyr if available, otherwise fallback
-  coverage_by_group_df <- tryCatch({
-    suppressMessages(
-      df_eval %>%
-        dplyr::group_by(feature_group, .drop = FALSE) %>%
-        dplyr::summarise(coverage = mean(covered, na.rm = TRUE), count = dplyr::n(), .groups = 'drop') %>%
-        dplyr::filter(count > 0) # Only consider groups with actual data
-    )
-  }, error = function(e) {
-    warning("WARN: Error during dplyr operation for FSC. Falling back to aggregate. Error: ", e$message)
+  if (requireNamespace("dplyr", quietly = TRUE)) {
+    library(dplyr) # Load dplyr to use the pipe and its functions
+    coverage_by_group_df <- tryCatch({
+      suppressMessages(
+        df_eval %>%
+          group_by(feature_group, .drop = FALSE) %>%
+          summarise(coverage = mean(covered, na.rm = TRUE), count = n(), .groups = 'drop') %>%
+          filter(count > 0)
+      )
+    }, error = function(e) { # Fallback if dplyr code still fails for some reason
+      warning("WARN: Error during dplyr operation for FSC despite package being loaded. Falling back. Error: ", e$message)
+      NULL # Signal to use base R fallback
+    })
+  } else {
+    warning("WARN: dplyr package not installed. FSC calculation will use base R's aggregate.")
+    coverage_by_group_df <- NULL # Signal to use base R fallback
+  }
+  
+  # Base R fallback if dplyr not available or failed
+  if (is.null(coverage_by_group_df)) {
     agg_df <- aggregate(covered ~ feature_group, data = df_eval, FUN = function(x) mean(x, na.rm = TRUE), drop = FALSE)
     count_df <- aggregate(covered ~ feature_group, data = df_eval, FUN = length, drop = FALSE)
     colnames(agg_df) <- c("feature_group", "coverage"); colnames(count_df) <- c("feature_group", "count")
-    merged_df <- merge(agg_df, count_df, by="feature_group")
-    return(merged_df[merged_df$count > 0, ])
-  })
+    coverage_by_group_df <- merge(agg_df, count_df, by="feature_group", all.x = TRUE) # Ensure all groups are kept initially
+    coverage_by_group_df <- coverage_by_group_df[coverage_by_group_df$count > 0 & !is.na(coverage_by_group_df$feature_group), ]
+  }
   
   if (nrow(coverage_by_group_df) == 0 || all(is.na(coverage_by_group_df$coverage))) {
     cat("WARN: No valid groups found for FSC or all coverages are NA.\n")
     return(list(min_coverage = NA, coverage_by_group = data.frame(feature_group=factor(), coverage=numeric(), count=integer())))
   }
   
-  min_fsc <- min(coverage_by_group_df$coverage, na.rm = TRUE) # Find minimum coverage across groups
+  min_fsc <- min(coverage_by_group_df$coverage, na.rm = TRUE)
   cat(paste("INFO: Minimum FSC calculated: ", round(min_fsc, 3), "\n", sep=""))
   return(list(min_coverage = min_fsc, coverage_by_group = coverage_by_group_df))
 }
 
 calculate_ssc <- function(prediction_sets_list, true_labels_test, num_bins_for_size = 3) {
   # Purpose: Calculates Set-Stratified Coverage (SSC).
-  #          It groups data by prediction set size (binning if many unique sizes)
-  #          and computes coverage within each group, then reports the minimum.
-  # Parameters:
-  #   - prediction_sets_list: List of prediction sets.
-  #   - true_labels_test: Vector of true labels.
-  #   - num_bins_for_size: Number of bins to group set sizes into.
+  # Parameters: (as before)
   # Returns: A list containing 'min_coverage' and 'coverage_by_group' (a data frame).
   
   cat("INFO: Calculating Set-Stratified Coverage (SSC)...\n")
-  if (!requireNamespace("dplyr", quietly = TRUE)) {
-    warning("WARN: dplyr package not installed. SSC might not be calculated robustly. Please install dplyr.")
-  }
   
   set_sizes <- get_set_sizes(prediction_sets_list)
   df_eval <- data.frame(true_label = as.character(true_labels_test), set_size = set_sizes)
@@ -148,37 +134,45 @@ calculate_ssc <- function(prediction_sets_list, true_labels_test, num_bins_for_s
     as.character(true_labels_test[i]) %in% prediction_sets_list[[i]]
   })
   
-  # Create set size groups
   unique_sizes <- unique(df_eval$set_size[!is.na(df_eval$set_size)])
-  if (length(unique_sizes) > num_bins_for_size && max(unique_sizes) > min(unique_sizes)) {
+  if (length(unique_sizes) > num_bins_for_size && max(unique_sizes, na.rm=TRUE) > min(unique_sizes, na.rm=TRUE)) { # Added na.rm for max/min
     df_eval$size_group <- cut(df_eval$set_size, breaks = num_bins_for_size, include.lowest = TRUE, ordered_result = TRUE)
-  } else { # If few unique sizes, use them directly as groups
+  } else {
     df_eval$size_group <- factor(df_eval$set_size)
   }
   
-  # Calculate coverage per size group
-  coverage_by_group_df <- tryCatch({
-    suppressMessages(
-      df_eval %>%
-        dplyr::group_by(size_group, .drop = FALSE) %>%
-        dplyr::summarise(coverage = mean(covered, na.rm = TRUE), count = dplyr::n(), .groups = 'drop') %>%
-        dplyr::filter(count > 0)
-    )
-  }, error = function(e) {
-    warning("WARN: Error during dplyr operation for SSC. Falling back to aggregate. Error: ", e$message)
+  if (requireNamespace("dplyr", quietly = TRUE)) {
+    library(dplyr) # Load dplyr
+    coverage_by_group_df <- tryCatch({
+      suppressMessages(
+        df_eval %>%
+          group_by(size_group, .drop = FALSE) %>%
+          summarise(coverage = mean(covered, na.rm = TRUE), count = n(), .groups = 'drop') %>%
+          filter(count > 0)
+      )
+    }, error = function(e) {
+      warning("WARN: Error during dplyr operation for SSC despite package being loaded. Falling back. Error: ", e$message)
+      NULL
+    })
+  } else {
+    warning("WARN: dplyr package not installed. SSC calculation will use base R's aggregate.")
+    coverage_by_group_df <- NULL
+  }
+  
+  if (is.null(coverage_by_group_df)) {
     agg_df <- aggregate(covered ~ size_group, data = df_eval, FUN = function(x) mean(x, na.rm = TRUE), drop = FALSE)
     count_df <- aggregate(covered ~ size_group, data = df_eval, FUN = length, drop = FALSE)
     colnames(agg_df) <- c("size_group", "coverage"); colnames(count_df) <- c("size_group", "count")
-    merged_df <- merge(agg_df, count_df, by="size_group")
-    return(merged_df[merged_df$count > 0, ])
-  })
+    coverage_by_group_df <- merge(agg_df, count_df, by="size_group", all.x = TRUE)
+    coverage_by_group_df <- coverage_by_group_df[coverage_by_group_df$count > 0 & !is.na(coverage_by_group_df$size_group), ]
+  }
   
   if (nrow(coverage_by_group_df) == 0 || all(is.na(coverage_by_group_df$coverage))) {
     cat("WARN: No valid groups found for SSC or all coverages are NA.\n")
     return(list(min_coverage = NA, coverage_by_group = data.frame(size_group=factor(), coverage=numeric(), count=integer())))
   }
   
-  min_ssc <- min(coverage_by_group_df$coverage, na.rm = TRUE) # Find minimum coverage across size groups
+  min_ssc <- min(coverage_by_group_df$coverage, na.rm = TRUE)
   cat(paste("INFO: Minimum SSC calculated: ", round(min_ssc, 3), "\n", sep=""))
   return(list(min_coverage = min_ssc, coverage_by_group = coverage_by_group_df))
 }
@@ -186,41 +180,34 @@ calculate_ssc <- function(prediction_sets_list, true_labels_test, num_bins_for_s
 plot_conditional_coverage <- function(coverage_by_group_df, group_col_name, coverage_col_name, 
                                       desired_coverage, main_title) {
   # Purpose: Generates a bar plot for conditional coverage results (FSC or SSC).
-  # Parameters:
-  #   - coverage_by_group_df: Data frame from calculate_fsc/ssc (must contain group_col_name and coverage_col_name).
-  #   - group_col_name: Name of the column in coverage_by_group_df representing the groups.
-  #   - coverage_col_name: Name of the column representing coverage values.
-  #   - desired_coverage: The target coverage level (e.g., 1-alpha) to draw as a reference line.
-  #   - main_title: Title for the plot.
+  # Parameters: (as before)
   # Returns: None (plots a ggplot).
   
   cat(paste("INFO: Plotting conditional coverage: '", main_title, "'\n", sep=""))
-  if (!requireNamespace("ggplot2", quietly = TRUE)) {
-    warning("WARN: ggplot2 package not installed. Cannot generate conditional coverage plot. Printing table instead.")
-    print(coverage_by_group_df)
-    return(invisible(NULL)) # Return NULL invisibly
-  }
-  library(ggplot2) # Ensure ggplot2 functions are available
   
-  # Basic check for valid data frame and columns
   if (nrow(coverage_by_group_df) == 0 || 
       !coverage_col_name %in% names(coverage_by_group_df) || 
-      !group_col_name %in% names(coverage_by_group_df)) {
-    cat("WARN: Cannot plot conditional coverage due to empty or malformed data frame.\n")
+      !group_col_name %in% names(coverage_by_group_df) ||
+      all(is.na(coverage_by_group_df[[coverage_col_name]]))) { # Check if all coverage values are NA
+    cat("WARN: Cannot plot conditional coverage due to empty, malformed, or all-NA data.\n")
     return(invisible(NULL))
   }
   
-  # Ensure the group column is treated as a factor for distinct bars
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    warning("WARN: ggplot2 package not installed. Cannot generate conditional coverage plot. Printing table instead.")
+    print(coverage_by_group_df)
+    return(invisible(NULL))
+  }
+  library(ggplot2) 
+  
   coverage_by_group_df[[group_col_name]] <- as.factor(coverage_by_group_df[[group_col_name]])
   
-  # Create the plot
   p <- ggplot(coverage_by_group_df, aes_string(x = group_col_name, y = coverage_col_name, fill = group_col_name)) +
-    geom_bar(stat = "identity", color = "black", na.rm = TRUE) + # na.rm for geom_bar
+    geom_bar(stat = "identity", color = "black", na.rm = TRUE) +
     geom_hline(yintercept = desired_coverage, linetype = "dashed", color = "red", linewidth = 1) +
     labs(title = main_title, x = "Group", y = "Empirical Coverage") +
     theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels for readability
-          legend.position = "none") + # No legend needed if fill is same as x
-    ylim(0, 1) # Standard y-axis for coverage
-  print(p) # Display the plot
+    theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none") +
+    ylim(0, 1)
+  print(p)
 }

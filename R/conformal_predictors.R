@@ -4,12 +4,14 @@
 # This script implements the core logic for different Conformal Prediction procedures as described in the paper. 
 # It includes functions for calculating non-conformity scores and for creating prediction sets.
 #
-# Functions:
-#   - calculate_q_hat(non_conformity_scores, alpha, n_calib): Calculates the q_hat quantile.
-#   - get_non_conformity_scores_basic(predicted_probs_matrix, true_labels): Calculates basic non-conformity scores.
-#   - create_prediction_sets_basic(predicted_probs_matrix_new_data, q_hat): Creates basic prediction sets.
-#   - get_non_conformity_scores_adaptive(predicted_probs_matrix, true_labels): Calculates adaptive non-conformity scores.
-#   - create_prediction_sets_adaptive(predicted_probs_matrix_new_data, q_hat): Creates adaptive prediction sets.
+Functions:
+  #   - calculate_q_hat(non_conformity_scores, alpha, n_calib): Calculates the q_hat quantile.
+  #   - get_non_conformity_scores_basic(...): Calculates basic non-conformity scores.
+  #   - create_prediction_sets_basic(...): Creates basic prediction sets.
+  #   - get_non_conformity_scores_adaptive(...): Calculates adaptive non-conformity scores.
+  #   - create_prediction_sets_adaptive(...): Creates adaptive prediction sets.
+  #   - get_non_conformity_scores_bayes(...): Calculates non-conformity scores for Conformalizing Bayes.
+  #   - create_prediction_sets_bayes(...): Creates prediction sets for Conformalizing Bayes.
 
 calculate_q_hat <- function(non_conformity_scores, alpha, n_calib) {
   # Purpose: Calculates the q_hat value (the (1-alpha) empirical quantile of non-conformity scores, adjusted for finite sample size).
@@ -157,6 +159,58 @@ create_prediction_sets_adaptive <- function(predicted_probs_matrix_new_data, q_h
       }
     }
     prediction_sets[[i]] <- current_set
+  }
+  return(prediction_sets)
+}
+
+# --- Section 2.4: Conformalizing Bayes ---
+
+get_non_conformity_scores_bayes <- function(predicted_probs_matrix, true_labels) {
+  # Purpose: Calculates non-conformity scores for Conformalizing Bayes.
+  #          The score is the negative of the model's predicted probability (or posterior
+  #          density/mass) for the true class. s_i = -f_hat(X_i)_Yi.
+  # Parameters:
+  #   - predicted_probs_matrix: A matrix of predicted probabilities (rows=samples, cols=classes).
+  #                               Colnames should be the class labels.
+  #   - true_labels: A vector of true class labels (factor or character).
+  # Returns: A numeric vector of non-conformity scores.
+  
+  # This function is structurally similar to get_non_conformity_scores_basic,
+  # but the score definition is different.
+  scores <- numeric(length(true_labels))
+  class_names <- colnames(predicted_probs_matrix) 
+  
+  for (i in 1:length(true_labels)) {
+    true_class_name <- as.character(true_labels[i])
+    if (!(true_class_name %in% class_names)) {
+      stop(paste("ERROR: True class '", true_class_name, "' not found in probability matrix columns: ", 
+                 paste(class_names, collapse=", "), sep=""))
+    }
+    prob_true_class <- predicted_probs_matrix[i, true_class_name]
+    scores[i] <- -prob_true_class # Score is negative of the probability of the true class
+  }
+  return(scores)
+}
+
+create_prediction_sets_bayes <- function(predicted_probs_matrix_new_data, q_hat_bayes) {
+  # Purpose: Creates prediction sets for Conformalizing Bayes.
+  #          The set includes classes y for which their predicted probability (or posterior
+  #          density/mass) f_hat(X)_y is greater than -q_hat_bayes.
+  #          T(X) = {y : f_hat(X)_y > -q_hat_bayes}.
+  # Parameters:
+  #   - predicted_probs_matrix_new_data: Matrix of predicted probabilities for new data.
+  #   - q_hat_bayes: The calibrated q_hat threshold (typically a negative value from Bayes scores).
+  # Returns: A list of character vectors, where each vector is a prediction set for a sample.
+  
+  prediction_sets <- vector("list", nrow(predicted_probs_matrix_new_data))
+  class_names <- colnames(predicted_probs_matrix_new_data)
+  # The threshold for inclusion is -q_hat_bayes (which will be positive if q_hat_bayes is negative)
+  threshold <- -q_hat_bayes 
+  
+  for (i in 1:nrow(predicted_probs_matrix_new_data)) {
+    # Select classes whose predicted probability meets or exceeds the threshold
+    current_set <- class_names[predicted_probs_matrix_new_data[i, ] > threshold]
+    prediction_sets[[i]] <- if (length(current_set) == 0) character(0) else current_set
   }
   return(prediction_sets)
 }
