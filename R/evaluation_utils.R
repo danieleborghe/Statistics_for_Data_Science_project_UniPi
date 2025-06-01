@@ -1,18 +1,20 @@
-# R/evaluation_utils.R
+# R/03_evaluation_utils.R
 #
 # Purpose:
 # This script provides functions for evaluating conformal prediction sets,
 # focusing on metrics described in Section 4 of the reference paper, such as
 # empirical coverage, set size analysis, Feature-Stratified Coverage (FSC),
-# and Set-Stratified Coverage (SSC).
+# and Set-Stratified Coverage (SSC). It also includes a function to plot
+# the distribution of marginal coverages from multiple runs.
 #
 # Functions:
-#   - calculate_empirical_coverage(prediction_sets_list, true_labels_test): Calculates marginal coverage.
-#   - get_set_sizes(prediction_sets_list): Extracts prediction set sizes.
-#   - plot_set_size_histogram(set_sizes, main_title): Plots histogram of set sizes.
-#   - calculate_fsc(prediction_sets_list, ...): Calculates Feature-Stratified Coverage.
-#   - calculate_ssc(prediction_sets_list, ...): Calculates Set-Stratified Coverage.
-#   - plot_conditional_coverage(coverage_by_group_df, ...): Plots conditional coverage results.
+#   - calculate_empirical_coverage(...): Calculates marginal coverage.
+#   - get_set_sizes(...): Extracts prediction set sizes.
+#   - plot_set_size_histogram(...): Plots histogram of set sizes.
+#   - calculate_fsc(...): Calculates Feature-Stratified Coverage.
+#   - calculate_ssc(...): Calculates Set-Stratified Coverage.
+#   - plot_conditional_coverage(...): Plots conditional coverage results.
+#   - plot_coverage_histogram(...): Plots histogram of marginal coverage distribution.
 
 # --- Section 4.1: Basic Checks ---
 calculate_empirical_coverage <- function(prediction_sets_list, true_labels_test) {
@@ -40,6 +42,45 @@ get_set_sizes <- function(prediction_sets_list) {
   # Returns: A numeric vector containing the size of each prediction set.
   set_sizes <- sapply(prediction_sets_list, length)
   return(set_sizes)
+}
+
+# --- Function to Plot Histogram of Marginal Coverages ---
+plot_coverage_histogram <- function(all_empirical_coverages, alpha_conf, n_runs, method_name = "") {
+  # Purpose: Generates and displays a histogram of the distribution of empirical
+  #          marginal coverage values obtained from multiple experiment runs.
+  # Parameters:
+  #   - all_empirical_coverages: A numeric vector of empirical coverage values.
+  #   - alpha_conf: The significance level used (e.g., 0.1).
+  #   - n_runs: The total number of runs (R) that generated the coverages.
+  #   - method_name: A string identifying the conformal method (for the plot title).
+  # Returns: None (plots a histogram).
+  
+  cat(paste0("INFO: Plotting histogram of ", n_runs, " marginal coverage values for '", method_name, "'...\n"))
+  
+  target_coverage <- 1 - alpha_conf
+  mean_observed_coverage <- mean(all_empirical_coverages, na.rm = TRUE)
+  
+  hist_title <- paste("Distribution of Marginal Coverage\n(", method_name, ", N=", n_runs, " runs)", sep="")
+  
+  hist(all_empirical_coverages,
+       main = hist_title,
+       xlab = "Empirical Coverage",
+       ylab = "Frequency",
+       col = "skyblue",
+       border = "black",
+       las = 1, # Orient y-axis labels horizontally
+       breaks = "Scott" # Or specify a number of breaks, e.g., 20
+  )
+  abline(v = target_coverage, col = "red", lwd = 2, lty = 2)
+  abline(v = mean_observed_coverage, col = "darkgreen", lwd = 2, lty = 3)
+  legend("topright", 
+         legend = c(paste("Target Coverage (", round(target_coverage,2), ")", sep=""), 
+                    paste("Mean Observed (", round(mean_observed_coverage,3), ")", sep="")),
+         col = c("red", "darkgreen"), 
+         lty = c(2,3), lwd = 2, cex=0.8, 
+         box.lty=0) # No box around legend for cleaner look
+  
+  cat(paste0("INFO: Histogram for '", method_name, "' generated.\n"))
 }
 
 plot_set_size_histogram <- function(set_sizes, main_title = "Prediction Set Size Distribution") {

@@ -3,8 +3,7 @@
 # Purpose:
 # This script implements the core logic for different Conformal Prediction procedures as described in the paper. 
 # It includes functions for calculating non-conformity scores and for creating prediction sets.
-#
-Functions:
+# Functions:
   #   - calculate_q_hat(non_conformity_scores, alpha, n_calib): Calculates the q_hat quantile.
   #   - get_non_conformity_scores_basic(...): Calculates basic non-conformity scores.
   #   - create_prediction_sets_basic(...): Creates basic prediction sets.
@@ -20,14 +19,6 @@ calculate_q_hat <- function(non_conformity_scores, alpha, n_calib) {
   #   - alpha: The desired significance level (e.g., 0.1 for 90% coverage).
   #   - n_calib: The number of samples in the calibration set.
   # Returns: The calculated q_hat value.
-  
-  if (length(non_conformity_scores) != n_calib) {
-    warning(paste0("WARN: Length of non-conformity scores (", length(non_conformity_scores), 
-                   ") does not match n_calib (", n_calib, ")."))
-  }
-  if (n_calib == 0) {
-    stop("ERROR: n_calib is 0, cannot calculate q_hat.")
-  }
   
   # Calculate the probability level for R's quantile function, as per paper's formula
   prob_level <- (ceiling((n_calib + 1) * (1 - alpha))) / n_calib
@@ -55,11 +46,6 @@ get_non_conformity_scores_basic <- function(predicted_probs_matrix, true_labels)
   
   for (i in 1:length(true_labels)) {
     true_class_name <- as.character(true_labels[i])
-    # Check if the true class name exists in the probability matrix columns
-    if (!(true_class_name %in% class_names)) {
-      stop(paste("ERROR: True class '", true_class_name, "' not found in probability matrix columns: ", 
-                 paste(class_names, collapse=", "), sep=""))
-    }
     # Get the predicted probability for the true class
     prob_true_class <- predicted_probs_matrix[i, true_class_name]
     # Calculate non-conformity score

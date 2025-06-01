@@ -1,163 +1,223 @@
-# R/sec2_4_run_experiment.R
+# R/sec2_4_run_experiment.R (o il nome che hai usato, es. 06_run_experiment_sec2_4.R)
 #
 # Purpose:
-# This script executes the full experiment for the Conformalizing Bayes method (described in Section 2.4 of the reference paper). 
-# It uses the Iris dataset and an SVM model (whose probability outputs are treated as posterior predictive mass).
-# Results, including tables and plots, are saved.
+# This script executes the Conformalizing Bayes experiment (Paper Section 2.4).
+# It includes multiple runs for marginal coverage histogram and a single detailed
+# evaluation run using BASE_SEED.
+#
+# Functions:
+#   - No user-defined functions; it's a main execution script.
 
 cat("INFO: Sourcing shared R scripts for Experiment (Section 2.4 - Conformalizing Bayes)...\n")
 source("R/load_data.R")
 source("R/train_svm_model.R")
-source("R/conformal_predictors.R") # Make sure this now includes Bayes functions
+source("R/conformal_predictors.R") # Make sure this includes Bayes functions
 source("R/evaluation_utils.R")
+source("R/utils.R")
 
-# Ensure ggplot2 is loaded for saving plots if it's used in evaluation utils
 if (requireNamespace("ggplot2", quietly = TRUE)) {
   library(ggplot2)
 }
 
-cat("INFO: --- Starting Experiment: Conformalizing Bayes (Section 2.4) ---\n")
+cat("INFO: --- Starting Experiment: Conformalizing Bayes (Section 2.4) with Multiple Runs for Coverage ---\n")
 
 # --- 0. Create Results Directories ---
 RESULTS_DIR <- "results"
-METHOD_NAME <- "section2_4_bayes"
-PLOTS_DIR <- file.path(RESULTS_DIR, "plots", METHOD_NAME)
-TABLES_DIR <- file.path(RESULTS_DIR, "tables", METHOD_NAME)
+METHOD_NAME_SUFFIX <- "section2_4_bayes" 
+PLOTS_DIR <- file.path(RESULTS_DIR, "plots", METHOD_NAME_SUFFIX)
+TABLES_DIR <- file.path(RESULTS_DIR, "tables", METHOD_NAME_SUFFIX)
 dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
 dir.create(TABLES_DIR, showWarnings = FALSE, recursive = TRUE)
-cat(paste0("INFO: Results for ", METHOD_NAME, " will be saved in '", RESULTS_DIR, "/'\n"))
+cat(paste0("INFO: Results will be saved in '", RESULTS_DIR, "/ (subfolders: ", METHOD_NAME_SUFFIX, ")'\n"))
 
 # --- 1. Experiment Settings ---
-set.seed(9012) # Yet another seed, or choose systematically
+BASE_SEED <- 42
 ALPHA_CONF <- 0.1 
-PROP_TRAIN <- 0.6 
-PROP_CALIB <- 0.2 
-cat(paste0("INFO: Settings: ALPHA_CONF=", ALPHA_CONF, ", PROP_TRAIN=", PROP_TRAIN, ", PROP_CALIB=", PROP_CALIB, "\n"))
+PROP_TRAIN <- 0.7 
+PROP_CALIB <- 0.1 
+N_RUNS <- 100 
 
-# --- 2. Load and Prepare Data ---
-iris_data <- load_iris_data() 
-n_total <- nrow(iris_data)
+cat(paste0("INFO: Settings: ALPHA_CONF=", ALPHA_CONF, ", N_RUNS_FOR_COVERAGE_HISTOGRAM=", N_RUNS, "\n"))
+cat(paste0("INFO: PROP_TRAIN=", PROP_TRAIN, ", PROP_CALIB=", PROP_CALIB, "\n"))
+cat(paste0("INFO: BASE_SEED for detailed single run analysis: ", BASE_SEED, "\n"))
 
-# --- 3. Data Splitting ---
-n_train <- floor(PROP_TRAIN * n_total)
-n_calib <- floor(PROP_CALIB * n_total)
-n_test <- n_total - n_train - n_calib
-train_indices <- 1:n_train
-calib_indices <- (n_train + 1):(n_train + n_calib)
-test_indices <- (n_train + n_calib + 1):n_total
-train_df <- iris_data[train_indices, ]
-calib_df <- iris_data[calib_indices, ]
-test_df <- iris_data[test_indices, ]
-cat(paste0("INFO: Dataset sizes: Train=", nrow(train_df), ", Calib=", nrow(calib_df), ", Test=", nrow(test_df), "\n"))
+# --- 2. Multiple Runs for Marginal Coverage Distribution ---
+all_empirical_coverages_bayes <- numeric(N_RUNS)
+cat(paste0("INFO: Starting ", N_RUNS, " runs to collect marginal coverage data (Bayes)...\n"))
 
-# --- 4. Train SVM Model ---
-svm_formula <- Species ~ . 
-svm_model <- train_svm_model(svm_formula, train_df) # The SVM's probabilities act as f_hat(X)_y
+iris_data_full <- load_iris_data() 
+n_total <- nrow(iris_data_full)
+n_train_loop <- floor(PROP_TRAIN * n_total)
+n_calib_loop <- floor(PROP_CALIB * n_total)
+n_test_loop <- n_total - n_train_loop - n_calib_loop
 
-# --- 5. Calibration for Conformalizing Bayes ---
-cat("INFO: Starting calibration phase for Conformalizing Bayes...\n")
-calib_probs <- predict_svm_probabilities(svm_model, calib_df)
-calib_true_labels <- calib_df$Species
+for (run_iter in 1:N_RUNS) {
+  current_run_seed <- BASE_SEED + run_iter 
+  set.seed(current_run_seed)
+  
+  shuffled_indices_for_run <- sample(n_total)
+  current_data_for_run <- iris_data_full[shuffled_indices_for_run, ]
+  
+  train_df_iter <- current_data_for_run[1:n_train_loop, ]
+  calib_df_iter <- current_data_for_run[(n_train_loop + 1):(n_train_loop + n_calib_loop), ]
+  test_df_iter <- current_data_for_run[(n_train_loop + n_calib_loop + 1):n_total, ]
+  
+  if (run_iter == 1 || run_iter %% (N_RUNS/10) == 0 || run_iter == N_RUNS) {
+    cat(paste0("INFO: Run ", run_iter, "/", N_RUNS, " (Seed: ", current_run_seed, ") - Splitting data (Bayes)...\n"))
+  }
+  
+  svm_formula <- Species ~ . 
+  svm_model_iter <- train_svm_model(svm_formula, train_df_iter)
+  
+  calib_probs_iter <- predict_svm_probabilities(svm_model_iter, calib_df_iter)
+  calib_true_labels_iter <- calib_df_iter$Species
+  # Use BAYES scores
+  non_conf_scores_iter <- get_non_conformity_scores_bayes(calib_probs_iter, calib_true_labels_iter) 
+  q_hat_iter <- calculate_q_hat(non_conf_scores_iter, ALPHA_CONF, n_calib = nrow(calib_df_iter))
+  
+  test_probs_iter <- predict_svm_probabilities(svm_model_iter, test_df_iter)
+  test_true_labels_iter <- test_df_iter$Species
+  # Use BAYES prediction sets
+  prediction_sets_iter <- create_prediction_sets_bayes(test_probs_iter, q_hat_iter) 
+  
+  current_coverage <- calculate_empirical_coverage(prediction_sets_iter, test_true_labels_iter)
+  all_empirical_coverages_bayes[run_iter] <- current_coverage
+  
+  if (run_iter == 1 || run_iter %% (N_RUNS/10) == 0 || run_iter == N_RUNS) {
+    cat(paste0("INFO: Run ", run_iter, " complete. Current coverage (Bayes): ", round(current_coverage, 3), 
+               ", q_hat_iter: ", round(q_hat_iter, 4), "\n"))
+  }
+}
+cat("INFO: All ", N_RUNS, " runs for marginal coverage completed (Bayes).\n")
 
-# Calculate non-conformity scores using the Bayes method s_i = -P(Y_i|X_i)
-non_conf_scores_calib_bayes <- get_non_conformity_scores_bayes(calib_probs, calib_true_labels)
+# --- 3. Analyze and Save Marginal Coverage Distribution ---
+cat("\nINFO: --- Analyzing Marginal Coverage Distribution (Conformalizing Bayes Method) ---\n")
+mean_empirical_coverage_bayes <- mean(all_empirical_coverages_bayes, na.rm = TRUE)
+sd_empirical_coverage_bayes <- sd(all_empirical_coverages_bayes, na.rm = TRUE)
+cat(paste0("RESULT: Mean Empirical Marginal Coverage (Bayes) over ", N_RUNS, " runs: ", round(mean_empirical_coverage_bayes, 3), "\n"))
+cat(paste0("RESULT: Std. Dev. of Empirical Marginal Coverage (Bayes): ", round(sd_empirical_coverage_bayes, 3), "\n"))
+cat(paste0("RESULT: Target Coverage was >= ", 1 - ALPHA_CONF, "\n"))
 
-# Calculate q_hat (will likely be negative)
-q_hat_bayes <- calculate_q_hat(non_conf_scores_calib_bayes, ALPHA_CONF, n_calib = nrow(calib_df))
-cat(paste0("INFO: Calibration complete. q_hat (Bayes) = ", round(q_hat_bayes, 4), "\n"))
-cat(paste0("INFO: Prediction threshold will be -q_hat = ", round(-q_hat_bayes, 4), "\n"))
+coverage_distribution_df_bayes <- data.frame(run_iteration = 1:N_RUNS, empirical_coverage = all_empirical_coverages_bayes)
+coverage_dist_filename_bayes <- file.path(TABLES_DIR, "coverage_distribution_bayes.csv")
+write.csv(coverage_distribution_df_bayes, coverage_dist_filename_bayes, row.names = FALSE)
+cat(paste0("INFO: Distribution of ", N_RUNS, " empirical coverages (Bayes) saved to '", coverage_dist_filename_bayes, "'\n"))
 
-
-# --- 6. Prediction and Evaluation on Test Set ---
-cat("INFO: Predicting and evaluating Conformalizing Bayes on test set...\n")
-test_probs <- predict_svm_probabilities(svm_model, test_df)
-test_true_labels <- test_df$Species
-
-# Create prediction sets: T(X) = {y : f_hat(X)_y > -q_hat_bayes}
-prediction_sets_test_bayes <- create_prediction_sets_bayes(test_probs, q_hat_bayes)
-
-cat("\nINFO: --- Evaluation Results: Conformalizing Bayes (Section 2.4) ---\n")
-# Marginal Coverage
-empirical_cov_bayes <- calculate_empirical_coverage(prediction_sets_test_bayes, test_true_labels)
-cat(paste0("RESULT: Empirical Marginal Coverage (Bayes): ", round(empirical_cov_bayes, 3), 
-           " (Target >= ", 1 - ALPHA_CONF, ")\n"))
-# Save marginal coverage
-coverage_summary_bayes <- data.frame(
-  method = "ConformalizingBayes_Section2.4",
-  alpha = ALPHA_CONF,
-  target_coverage = 1 - ALPHA_CONF,
-  empirical_coverage = empirical_cov_bayes,
-  q_hat = q_hat_bayes,
-  prediction_threshold = -q_hat_bayes
-)
-write.csv(coverage_summary_bayes, file.path(TABLES_DIR, "coverage_summary_bayes.csv"), row.names = FALSE)
-cat(paste0("INFO: Marginal coverage summary saved to '", TABLES_DIR, "/coverage_summary_bayes.csv'\n"))
-
-# Set Sizes
-set_sizes_bayes <- get_set_sizes(prediction_sets_test_bayes)
-cat("RESULT: Set Size Statistics (Bayes):\n"); print(summary(set_sizes_bayes))
-avg_set_size_bayes <- mean(set_sizes_bayes, na.rm=TRUE)
-cat(paste0("RESULT: Average set size (Bayes): ", round(avg_set_size_bayes, 3), "\n"))
-# Save set size summary
-set_size_summary_df_bayes <- data.frame(
-  Min = min(set_sizes_bayes, na.rm=TRUE),
-  Q1 = quantile(set_sizes_bayes, 0.25, na.rm=TRUE, names=FALSE),
-  Median = median(set_sizes_bayes, na.rm=TRUE),
-  Mean = avg_set_size_bayes,
-  Q3 = quantile(set_sizes_bayes, 0.75, na.rm=TRUE, names=FALSE),
-  Max = max(set_sizes_bayes, na.rm=TRUE)
-)
-write.csv(set_size_summary_df_bayes, file.path(TABLES_DIR, "set_size_summary_bayes.csv"), row.names = FALSE)
-write.csv(data.frame(set_size = set_sizes_bayes), file.path(TABLES_DIR, "set_sizes_raw_bayes.csv"), row.names = FALSE)
-cat(paste0("INFO: Set size summary and raw sizes saved to '", TABLES_DIR, "/'\n"))
-
-# Plot and Save set size histogram
-plot_filename_set_size_bayes <- file.path(PLOTS_DIR, "histogram_set_sizes_bayes.png")
-png(plot_filename_set_size_bayes, width=800, height=600)
-plot_set_size_histogram(set_sizes_bayes, main_title = "Set Sizes (Conformalizing Bayes - Iris)")
+coverage_hist_filename_bayes <- file.path(PLOTS_DIR, "histogram_marginal_coverage_bayes.png")
+png(coverage_hist_filename_bayes, width=800, height=600)
+plot_coverage_histogram(all_empirical_coverages_bayes, 
+                        alpha_conf = ALPHA_CONF, 
+                        n_runs = N_RUNS, 
+                        method_name = "Conformalizing Bayes Method")
 dev.off()
-cat(paste0("INFO: Set size histogram saved to '", plot_filename_set_size_bayes, "'\n"))
+cat(paste0("INFO: Histogram of marginal coverage (Bayes) saved to '", coverage_hist_filename_bayes, "'\n"))
 
-# FSC (Feature-Stratified Coverage)
-fsc_feature_name_bayes <- "Sepal.Width" # Example feature for FSC stratification
-fsc_results_bayes <- calculate_fsc(prediction_sets_test_bayes, test_true_labels, 
-                                   test_df[[fsc_feature_name_bayes]], feature_name = fsc_feature_name_bayes,
-                                   num_bins_for_continuous = 4)
-cat(paste0("RESULT: FSC (Bayes - by ", fsc_feature_name_bayes, "):\n"))
-if(!is.na(fsc_results_bayes$min_coverage)) {
-  cat(paste0("  Minimum FSC coverage: ", round(fsc_results_bayes$min_coverage, 3), "\n"))
-  print(fsc_results_bayes$coverage_by_group)
-  write.csv(fsc_results_bayes$coverage_by_group, file.path(TABLES_DIR, paste0("fsc_by_",fsc_feature_name_bayes,"_bayes.csv")), row.names = FALSE)
-  cat(paste0("INFO: FSC results table saved to '", TABLES_DIR, "/fsc_by_",fsc_feature_name_bayes,"_bayes.csv'\n"))
+# --- 4. Detailed Single-Run Evaluation (using BASE_SEED for reproducibility) ---
+cat("\nINFO: --- Detailed Evaluation for a Single Reproducible Run (Conformalizing Bayes - using BASE_SEED) ---\n")
+set.seed(BASE_SEED) 
+
+cat(paste0("INFO: Performing single data split with BASE_SEED = ", BASE_SEED, " for detailed analysis (Bayes)...\n"))
+single_run_shuffled_indices <- sample(n_total)
+single_run_data <- iris_data_full[single_run_shuffled_indices, ]
+
+single_run_train_df <- single_run_data[1:n_train_loop, ]
+single_run_calib_df <- single_run_data[(n_train_loop + 1):(n_train_loop + n_calib_loop), ]
+single_run_test_df <- single_run_data[(n_train_loop + n_calib_loop + 1):n_total, ]
+cat(paste0("INFO: Single run dataset sizes (Bayes): Train=", nrow(single_run_train_df), 
+           ", Calib=", nrow(single_run_calib_df), ", Test=", nrow(single_run_test_df), "\n"))
+
+single_run_svm_model <- train_svm_model(svm_formula, single_run_train_df)
+
+single_run_calib_probs <- predict_svm_probabilities(single_run_svm_model, single_run_calib_df)
+single_run_calib_true_labels <- single_run_calib_df$Species
+# Use BAYES scores
+single_run_non_conf_scores <- get_non_conformity_scores_bayes(single_run_calib_probs, single_run_calib_true_labels) 
+single_run_q_hat_bayes <- calculate_q_hat(single_run_non_conf_scores, ALPHA_CONF, n_calib = nrow(single_run_calib_df))
+cat(paste0("INFO: Single run calibration complete. q_hat (Bayes) = ", round(single_run_q_hat_bayes, 4), "\n"))
+cat(paste0("INFO: Single run prediction threshold will be -q_hat = ", round(-single_run_q_hat_bayes, 4), "\n"))
+
+
+single_run_test_probs <- predict_svm_probabilities(single_run_svm_model, single_run_test_df)
+single_run_test_true_labels <- single_run_test_df$Species
+# Use BAYES prediction sets
+single_run_prediction_sets <- create_prediction_sets_bayes(single_run_test_probs, single_run_q_hat_bayes) 
+
+save_detailed_test_predictions(
+  test_true_labels = single_run_test_true_labels,
+  prediction_sets_list = single_run_prediction_sets,
+  test_probs_matrix = single_run_test_probs,
+  output_directory = TABLES_DIR,
+  base_filename = "detailed_test_predictions_bayes_BASESEED_RUN.csv"
+)
+
+single_run_empirical_cov_bayes <- calculate_empirical_coverage(single_run_prediction_sets, single_run_test_true_labels)
+cat(paste0("RESULT (BASE_SEED Run): Empirical Marginal Coverage (Bayes): ", round(single_run_empirical_cov_bayes, 3), 
+           " (Target >= ", 1 - ALPHA_CONF, ")\n"))
+single_run_coverage_summary_bayes <- data.frame(
+  method = "ConformalizingBayes_Section2.4_BASESEED_Run", alpha = ALPHA_CONF,
+  target_coverage = 1 - ALPHA_CONF, empirical_coverage = single_run_empirical_cov_bayes,
+  q_hat = single_run_q_hat_bayes, prediction_threshold = -single_run_q_hat_bayes
+)
+write.csv(single_run_coverage_summary_bayes, file.path(TABLES_DIR, "coverage_summary_bayes_BASESEED_RUN.csv"), row.names = FALSE)
+cat(paste0("INFO: Marginal coverage summary for BASE_SEED RUN (Bayes) saved to '", TABLES_DIR, "/coverage_summary_bayes_BASESEED_RUN.csv'\n"))
+
+single_run_set_sizes_bayes <- get_set_sizes(single_run_prediction_sets)
+cat("RESULT (BASE_SEED Run): Set Size Statistics (Bayes):\n"); print(summary(single_run_set_sizes_bayes))
+single_run_avg_set_size_bayes <- mean(single_run_set_sizes_bayes, na.rm=TRUE)
+cat(paste0("RESULT (BASE_SEED Run): Average set size (Bayes): ", round(single_run_avg_set_size_bayes, 3), "\n"))
+single_run_set_size_summary_df_bayes <- data.frame(
+  Min = min(single_run_set_sizes_bayes, na.rm=TRUE), Q1 = quantile(single_run_set_sizes_bayes, 0.25, na.rm=TRUE, names=FALSE),
+  Median = median(single_run_set_sizes_bayes, na.rm=TRUE), Mean = single_run_avg_set_size_bayes,
+  Q3 = quantile(single_run_set_sizes_bayes, 0.75, na.rm=TRUE, names=FALSE), Max = max(single_run_set_sizes_bayes, na.rm=TRUE)
+)
+write.csv(single_run_set_size_summary_df_bayes, file.path(TABLES_DIR, "set_size_summary_bayes_BASESEED_RUN.csv"), row.names = FALSE)
+write.csv(data.frame(set_size = single_run_set_sizes_bayes), file.path(TABLES_DIR, "set_sizes_raw_bayes_BASESEED_RUN.csv"), row.names = FALSE)
+cat(paste0("INFO: Set size summary and raw sizes for BASE_SEED RUN (Bayes) saved to '", TABLES_DIR, "/'\n"))
+
+single_run_plot_filename_set_size_bayes <- file.path(PLOTS_DIR, "histogram_set_sizes_bayes_BASESEED_RUN.png")
+png(single_run_plot_filename_set_size_bayes, width=800, height=600)
+plot_set_size_histogram(single_run_set_sizes_bayes, main_title = "Set Sizes (Conformalizing Bayes - Iris - BASE_SEED Run)")
+dev.off()
+cat(paste0("INFO: Set size histogram for BASE_SEED RUN (Bayes) saved to '", single_run_plot_filename_set_size_bayes, "'\n"))
+
+single_run_fsc_feature_name_bayes <- "Sepal.Width" 
+single_run_fsc_results_bayes <- calculate_fsc(single_run_prediction_sets, single_run_test_true_labels, 
+                                              single_run_test_df[[single_run_fsc_feature_name_bayes]], feature_name = single_run_fsc_feature_name_bayes,
+                                              num_bins_for_continuous = 4)
+cat(paste0("RESULT (BASE_SEED Run): FSC (Bayes - by ", single_run_fsc_feature_name_bayes, "):\n"))
+if(!is.na(single_run_fsc_results_bayes$min_coverage)) {
+  cat(paste0("  Minimum FSC coverage: ", round(single_run_fsc_results_bayes$min_coverage, 3), "\n"))
+  print(single_run_fsc_results_bayes$coverage_by_group)
+  write.csv(single_run_fsc_results_bayes$coverage_by_group, file.path(TABLES_DIR, paste0("fsc_by_",single_run_fsc_feature_name_bayes,"_bayes_BASESEED_RUN.csv")), row.names = FALSE)
+  cat(paste0("INFO: FSC results table for BASE_SEED RUN (Bayes) saved to '", TABLES_DIR, "/fsc_by_",single_run_fsc_feature_name_bayes,"_bayes_BASESEED_RUN.csv'\n"))
   
-  plot_filename_fsc_bayes <- file.path(PLOTS_DIR, paste0("plot_fsc_",fsc_feature_name_bayes,"_bayes.png"))
-  if(requireNamespace("ggplot2", quietly = TRUE) && nrow(fsc_results_bayes$coverage_by_group) > 0){
-    png(plot_filename_fsc_bayes, width=800, height=600)
-    plot_conditional_coverage(fsc_results_bayes$coverage_by_group, "feature_group", "coverage", 
-                              1 - ALPHA_CONF, paste0("FSC (Bayes - ", fsc_feature_name_bayes, " - Iris)"))
+  single_run_plot_filename_fsc_bayes <- file.path(PLOTS_DIR, paste0("plot_fsc_",single_run_fsc_feature_name_bayes,"_bayes_BASESEED_RUN.png"))
+  if(requireNamespace("ggplot2", quietly = TRUE) && nrow(single_run_fsc_results_bayes$coverage_by_group) > 0){
+    png(single_run_plot_filename_fsc_bayes, width=800, height=600)
+    plot_conditional_coverage(single_run_fsc_results_bayes$coverage_by_group, "feature_group", "coverage", 
+                              1 - ALPHA_CONF, paste0("FSC (Bayes - ", single_run_fsc_feature_name_bayes, " - Iris - BASE_SEED Run)"))
     dev.off()
-    cat(paste0("INFO: FSC plot saved to '", plot_filename_fsc_bayes, "'\n"))
+    cat(paste0("INFO: FSC plot for BASE_SEED RUN (Bayes) saved to '", single_run_plot_filename_fsc_bayes, "'\n"))
   } else {cat("INFO: ggplot2 not available or no data for FSC plot.\n")}
-} else { cat("  FSC: NA or no groups.\n") }
+} else { cat("  FSC (BASE_SEED Run - Bayes): NA or no groups.\n") }
 
-# SSC (Set-Stratified Coverage)
-ssc_bins_bayes <- max(1, min(length(unique(set_sizes_bayes)), length(levels(iris_data$Species))))
-ssc_results_bayes <- calculate_ssc(prediction_sets_test_bayes, test_true_labels, num_bins_for_size = ssc_bins_bayes)
-cat("RESULT: SSC (Bayes):\n")
-if(!is.na(ssc_results_bayes$min_coverage)) {
-  cat(paste0("  Minimum SSC coverage: ", round(ssc_results_bayes$min_coverage, 3), "\n"))
-  print(ssc_results_bayes$coverage_by_group)
-  write.csv(ssc_results_bayes$coverage_by_group, file.path(TABLES_DIR, "ssc_bayes.csv"), row.names = FALSE)
-  cat(paste0("INFO: SSC results table saved to '", TABLES_DIR, "/ssc_bayes.csv'\n"))
+single_run_ssc_bins_bayes <- max(1, min(length(unique(single_run_set_sizes_bayes)), length(levels(iris_data_full$Species))))
+single_run_ssc_results_bayes <- calculate_ssc(single_run_prediction_sets, single_run_test_true_labels, num_bins_for_size = single_run_ssc_bins_bayes)
+cat("RESULT (BASE_SEED Run): SSC (Bayes):\n")
+if(!is.na(single_run_ssc_results_bayes$min_coverage)) {
+  cat(paste0("  Minimum SSC coverage: ", round(single_run_ssc_results_bayes$min_coverage, 3), "\n"))
+  print(single_run_ssc_results_bayes$coverage_by_group)
+  write.csv(single_run_ssc_results_bayes$coverage_by_group, file.path(TABLES_DIR, "ssc_bayes_BASESEED_RUN.csv"), row.names = FALSE)
+  cat(paste0("INFO: SSC results table for BASE_SEED RUN (Bayes) saved to '", TABLES_DIR, "/ssc_bayes_BASESEED_RUN.csv'\n"))
   
-  plot_filename_ssc_bayes <- file.path(PLOTS_DIR, "plot_ssc_bayes.png")
-  if(requireNamespace("ggplot2", quietly = TRUE) && nrow(ssc_results_bayes$coverage_by_group) > 0){
-    png(plot_filename_ssc_bayes, width=800, height=600)
-    plot_conditional_coverage(ssc_results_bayes$coverage_by_group, "size_group", "coverage", 
-                              1 - ALPHA_CONF, "SSC (Conformalizing Bayes - Iris)")
+  single_run_plot_filename_ssc_bayes <- file.path(PLOTS_DIR, "plot_ssc_bayes_BASESEED_RUN.png")
+  if(requireNamespace("ggplot2", quietly = TRUE) && nrow(single_run_ssc_results_bayes$coverage_by_group) > 0){
+    png(single_run_plot_filename_ssc_bayes, width=800, height=600)
+    plot_conditional_coverage(single_run_ssc_results_bayes$coverage_by_group, "size_group", "coverage", 
+                              1 - ALPHA_CONF, "SSC (Conformalizing Bayes - Iris - BASE_SEED Run)")
     dev.off()
-    cat(paste0("INFO: SSC plot saved to '", plot_filename_ssc_bayes, "'\n"))
+    cat(paste0("INFO: SSC plot for BASE_SEED RUN (Bayes) saved to '", single_run_plot_filename_ssc_bayes, "'\n"))
   } else {cat("INFO: ggplot2 not available or no data for SSC plot.\n")}
-} else { cat("  SSC: NA or no groups.\n") }
+} else { cat("  SSC (BASE_SEED Run - Bayes): NA or no groups.\n") }
 
 cat("INFO: --- End of Conformalizing Bayes Experiment ---\n")
