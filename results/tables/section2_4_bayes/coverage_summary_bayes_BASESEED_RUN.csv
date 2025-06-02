@@ -1,2 +1,2 @@
 "method","alpha","target_coverage","empirical_coverage","q_hat","prediction_threshold"
-"ConformalizingBayes_Section2.4_BASESEED_Run",0.1,0.9,0.833333333333333,-0.935219780005178,0.935219780005178
+"ConformalizingBayes_Section2.4_BASESEED_Run",0.1,0.9,0.933333333333333,-0.630854875156994,0.630854875156994
