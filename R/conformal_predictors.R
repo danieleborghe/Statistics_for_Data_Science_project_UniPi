@@ -200,3 +200,88 @@ create_prediction_sets_bayes <- function(predicted_probs_matrix_new_data, q_hat_
   }
   return(prediction_sets)
 }
+
+# --- Section 2.2: Conformalized Quantile Regression ---
+
+train_quantile_models <- function(train_data, taus = c(0.05, 0.95)) {
+  if (!require("quantreg")) install.packages("quantreg", dependencies = TRUE)
+  library(quantreg)
+  models <- lapply(taus, function(tau) {
+    rq(Petal.Length ~ ., data = train_data, tau = tau)
+  })
+  names(models) <- paste0("tau_", taus)
+  return(models)
+}
+compute_conformal_quantile <- function(models, calib_data, alpha = 0.1) {
+  q_low  <- predict(models[[1]], newdata = calib_data)
+  q_high <- predict(models[[2]], newdata = calib_data)
+  scores <- pmax(q_low - calib_data$Petal.Length, calib_data$Petal.Length - q_high)
+  q_conformal <- quantile(scores, probs = 1 - alpha, type = 1)
+  cat("Quantile conformale q^ =", q_conformal, "\n")
+  return(q_conformal)
+}
+predict_intervals <- function(models, test_data, q_conformal) {
+  q_low  <- predict(models[[1]], newdata = test_data)
+  q_high <- predict(models[[2]], newdata = test_data)
+  lower <- q_low - abs(q_conformal)
+  upper <- q_high + abs(q_conformal)
+  return(list(lower = lower, upper = upper))
+}
+compute_conformal_quantile <- function(models, calib_data, alpha = 0.1) {
+  q_low  <- predict(models[[1]], newdata = calib_data)
+  q_high <- predict(models[[2]], newdata = calib_data)
+  scores <- pmax(q_low - calib_data$Petal.Length, calib_data$Petal.Length - q_high)
+  q_conformal <- quantile(scores, probs = 1 - alpha, type = 1)
+  cat("Quantile conformale q^ =", q_conformal, "\n")
+  return(q_conformal)
+}
+plot_intervals <- function(results_df, title_text) {
+  if (!require("ggplot2")) install.packages("ggplot2", dependencies = TRUE)
+  library(ggplot2)
+  ggplot(results_df, aes(x = index)) +
+    geom_point(aes(y = true_value), color = "black", size = 1.8) +
+    geom_line(aes(y = midpoint), color = "blue", linetype = "dashed") +
+    geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.25, color = "red") +
+    labs(title = title_text, x = "Osservazione nel test set", y = "Petal.Length") +
+    theme_minimal()
+}
+evaluate_fsc <- function(test_data, covered_vec, feature_name = "SepalWidthCm") {
+  if (!require("ggplot2")) install.packages("ggplot2", dependencies = TRUE)
+  library(ggplot2)
+  group <- ifelse(test_data[[feature_name]] <= median(test_data[[feature_name]]), "Basso", "Alto")
+  group_df <- data.frame(group = group, covered = covered_vec)
+  fsc_coverage <- tapply(group_df$covered, group_df$group, mean)
+  cat("\nCopertura per ampiezza intervallo (FSC):\n")
+  print(round(ssc_coverage, 3))
+  
+  fsc_df <- data.frame(gruppo = names(fsc_coverage), copertura = as.numeric(fsc_coverage))
+  ggplot(fsc_df, aes(x = gruppo, y = copertura, fill = gruppo)) +
+    geom_col(width = 0.6) +
+    geom_hline(yintercept = 0.9, linetype = "dashed", color = "red") +
+    ylim(0, 1.05) +
+    labs(title = "Feature-Stratified Coverage (FSC)", x = feature_name, y = "Copertura empirica") +
+    theme_minimal() +
+    theme(legend.position = "none")
+}
+
+evaluate_ssc <- function(width_vec, covered_vec) {
+  if (!require("ggplot2")) install.packages("ggplot2", dependencies = TRUE)
+  library(ggplot2)
+  quantiles <- quantile(width_vec, probs = c(0.33, 0.66))
+  interval_size <- cut(width_vec,
+                       breaks = c(-Inf, quantiles[1], quantiles[2], Inf),
+                       labels = c("Piccolo", "Medio", "Grande"))
+  ssc_df <- data.frame(bin = interval_size, covered = covered_vec)
+  ssc_coverage <- tapply(ssc_df$covered, ssc_df$bin, mean)
+  cat("\nCopertura per ampiezza intervallo (SSC):\n")
+  print(round(ssc_coverage, 3))
+  ssc_df_plot <- data.frame(gruppo = names(ssc_coverage),
+                            copertura = as.numeric(ssc_coverage))
+  ggplot(ssc_df_plot, aes(x = gruppo, y = copertura, fill = gruppo)) +
+    geom_col(width = 0.6) +
+    geom_hline(yintercept = 0.9, linetype = "dashed", color = "red") +
+    ylim(0, 1.05) +
+    labs(title = "Set-Stratified Coverage (SSC)", x = "Ampiezza intervallo", y = "Copertura empirica") +
+    theme_minimal() +
+    theme(legend.position = "none")
+}

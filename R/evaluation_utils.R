@@ -252,3 +252,26 @@ plot_conditional_coverage <- function(coverage_by_group_df, group_col_name, cove
     ylim(0, 1)
   print(p)
 }
+
+# --- Section 2.2: Conformalized Quantile Regression---
+print_interval_width <- function(lower, upper, label = "") {
+  width <- upper - lower
+  avg_width <- mean(width)
+  cat("Ampiezza media dell'intervallo", label, "=", round(avg_width, 3), "\n")
+  return(avg_width)
+}
+evaluate_adaptivity_plot <- function(results_df, Y_test) {
+  residuals_abs <- abs(Y_test - results_df$midpoint)
+  width <- results_df$upper - results_df$lower
+  plot(width, residuals_abs,
+       xlab = "Ampiezza intervallo predittivo",
+       ylab = "Errore assoluto |Y - centro intervallo|",
+       main = "Adattività degli intervalli (Quantile Regression)")
+  abline(lm(residuals_abs ~ width), col = "red", lty = 2)
+}
+evaluate_coverage <- function(Y_true, lower, upper) {
+  covered <- (Y_true >= lower) & (Y_true <= upper)
+  coverage <- mean(covered)
+  cat("Copertura empirica =", round(coverage, 3), "\n")
+  return(coverage)
+}

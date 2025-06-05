@@ -1,0 +1,61 @@
+# Caricamento delle funzioni modulari
+source("install_dependencies.R")  # se include i pacchetti
+source("load_data.R")
+source("conformal_predictors.R")
+source("evaluation_utils.R")
+# percorso dataset
+dataset_path <- "C:/Users/PC/Desktop/STATS/Iris dataset.csv"
+data_split <- load_and_split_data(dataset_path)
+
+train_data <- data_split$train
+calib_data <- data_split$calib
+test_data  <- data_split$test
+Y_test     <- test_data$Petal.Length
+
+# Modelli quantili (tau = 0.025, 0.975)
+models_extreme <- train_quantile_models(train_data, taus = c(0.025, 0.975))
+q_conformal_extreme <- compute_conformal_quantile(models_extreme, calib_data, alpha = 0.1)
+intervals_extreme <- predict_intervals(models_extreme, test_data, q_conformal_extreme)
+
+# Copertura
+coverage_ext <- evaluate_coverage(Y_test, intervals_extreme$lower, intervals_extreme$upper)
+avg_width_95 <- print_interval_width(intervals_extreme$lower, intervals_extreme$upper, "(95%)")
+# Risultati e plot
+results_ext <- build_results_df(Y_test, intervals_extreme$lower, intervals_extreme$upper)
+plot_intervals(results_ext, "Intervalli predittivi conformali (Quantile Regression estrema)")
+
+# Adattività
+evaluate_adaptivity_plot(results_ext, Y_test)
+
+# FSC
+covered_vec <- (Y_test >= intervals_extreme$lower) & (Y_test <= intervals_extreme$upper)
+evaluate_fsc(test_data, covered_vec)
+
+# SSC
+width_vec <- intervals_extreme$upper - intervals_extreme$lower
+evaluate_ssc(width_vec, covered_vec)
+
+
+# Modelli quantili (tau = 0.05, 0.95)
+models_90 <- train_quantile_models(train_data, taus = c(0.05, 0.95))
+q_conformal_90 <- compute_conformal_quantile(models_90, calib_data, alpha = 0.1)
+intervals_90 <- predict_intervals(models_90, test_data, q_conformal_90)
+
+# Copertura
+coverage_90 <- evaluate_coverage(Y_test, intervals_90$lower, intervals_90$upper)
+avg_width_90 <- print_interval_width(intervals_90$lower, intervals_90$upper, "(90%)")
+
+# Risultati e plot
+results_90 <- build_results_df(Y_test, intervals_90$lower, intervals_90$upper)
+plot_intervals(results_90, "Intervalli predittivi conformali (Quantile Regression 90%)")
+
+# Adattività
+evaluate_adaptivity_plot(results_90, Y_test)
+
+# FSC
+covered_vec_90 <- (Y_test >= intervals_90$lower) & (Y_test <= intervals_90$upper)
+evaluate_fsc(test_data, covered_vec_90)
+
+# SSC
+width_vec_90 <- intervals_90$upper - intervals_90$lower
+evaluate_ssc(width_vec_90, covered_vec_90)
