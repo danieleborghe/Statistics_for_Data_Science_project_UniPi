@@ -44,3 +44,25 @@ load_and_split_data <- function(file_path, target_name = "PetalLengthCm", seed =
   cat("Train:", nrow(train_data), "Calibrazione:", nrow(calib_data), "Test:", nrow(test_data), "\n")
   return(list(train = train_data, calib = calib_data, test = test_data))
 }
+# --- Section 2.3: Scalar Uncertainty Estimates ---
+load_and_split_data <- function(file_path, target_name = "PetalLengthCm", seed = 42) {
+  if (!require("dplyr")) install.packages("dplyr", dependencies = TRUE)
+  library(dplyr)
+  
+  data <- read.csv(file_path)
+  names(data)[which(names(data) == target_name)] <- "Petal.Length"
+  data <- data %>% select(-Id, -Species)
+  
+  set.seed(seed)
+  n <- nrow(data)
+  train_index <- sample(1:n, size = 0.6 * n)
+  remaining <- setdiff(1:n, train_index)
+  calib_index <- sample(remaining, size = 0.5 * length(remaining))
+  test_index <- setdiff(remaining, calib_index)
+  
+  return(list(
+    train = data[train_index, ],
+    calib = data[calib_index, ],
+    test  = data[test_index, ]
+  ))
+}

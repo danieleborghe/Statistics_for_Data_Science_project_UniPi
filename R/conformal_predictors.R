@@ -285,3 +285,49 @@ evaluate_ssc <- function(width_vec, covered_vec) {
     theme_minimal() +
     theme(legend.position = "none")
 }
+
+
+# --- Section 2.3: Scalar Uncertainty Estimates ---
+train_svm_model <- function(train_data) {
+  if (!require("e1071")) install.packages("e1071", dependencies = TRUE)
+  library(e1071)
+  
+  svm(Petal.Length ~ ., data = train_data, type = "eps-regression")
+}
+compute_svm_scores <- function(model, calib_data, mode = "residuals") {
+  preds <- predict(model, newdata = calib_data)
+  Y <- calib_data$Petal.Length
+  
+  if (mode == "residuals") {
+    residuals <- abs(Y - preds)
+    return(residuals)  
+  }
+  
+  if (mode == "squared") {
+    residuals <- (Y - preds)^2
+    return(residuals)
+  }
+}
+build_svm_intervals <- function(f_model, u_model, data, q_hat, stddev = FALSE) {
+  f_pred <- predict(f_model, newdata = data)
+  u_pred <- predict(u_model, newdata = data)
+  
+  if (stddev) {
+    u_pred <- sqrt(u_pred)
+  }
+  
+  lower <- f_pred - q_hat * u_pred
+  upper <- f_pred + q_hat * u_pred
+  return(list(lower = lower, upper = upper, midpoint = f_pred))
+}
+compute_conformal_quantile_svm <- function(residuals, u_hat, alpha = 0.1) {
+  scores <- residuals / u_hat
+  quantile(scores, probs = 1 - alpha, type = 1)
+}
+train_uncertainty_model <- function(residuals, features) {
+  if (!require("e1071")) install.packages("e1071", dependencies = TRUE)
+  library(e1071)
+  
+  # Allena un modello SVM per predire i residui
+  svm(residuals ~ ., data = cbind(residuals = residuals, features))
+}

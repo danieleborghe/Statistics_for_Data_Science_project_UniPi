@@ -275,3 +275,95 @@ evaluate_coverage <- function(Y_true, lower, upper) {
   cat("Copertura empirica =", round(coverage, 3), "\n")
   return(coverage)
 }
+# --- Section 2.3: Scalar Uncertainty Estimates---
+evaluate_intervals <- function(Y, lower, upper, label = "") {
+  covered <- (Y >= lower) & (Y <= upper)
+  coverage <- mean(covered)
+  width <- upper - lower
+  avg_width <- mean(width)
+  
+  cat(paste0("\n[", label, "] Copertura empirica = "), round(coverage, 3), "\n")
+  cat(paste0("[", label, "] Ampiezza media = "), round(avg_width, 3), "\n")
+  
+  return(list(coverage = coverage, avg_width = avg_width, covered = covered, width = width))
+}
+plot_svm_intervals <- function(Y_true, lower, upper, midpoint, title) {
+  if (!require("ggplot2")) install.packages("ggplot2", dependencies = TRUE)
+  library(ggplot2)
+  
+  df <- data.frame(
+    index = 1:length(Y_true),
+    true_value = Y_true,
+    lower = lower,
+    upper = upper,
+    midpoint = midpoint
+  )
+  
+  ggplot(df, aes(x = index)) +
+    geom_point(aes(y = true_value), color = "black", size = 1.8) +
+    geom_line(aes(y = midpoint), color = "blue", linetype = "dashed") +
+    geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.25, color = "darkgreen") +
+    labs(title = title,
+         x = "Osservazione nel test set",
+         y = "Petal.Length") +
+    theme_minimal()
+}
+plot_adaptivity <- function(lower, upper, Y_true, label = "") {
+  residuals_abs <- abs(Y_true - (lower + upper) / 2)
+  width <- upper - lower
+  
+  plot(width, residuals_abs,
+       xlab = paste("Ampiezza intervallo", label),
+       ylab = "|Errore assoluto|",
+       main = paste("Adattività", label))
+  abline(lm(residuals_abs ~ width), col = "red", lty = 2)
+}
+evaluate_fsc <- function(test_data, covered_vec, feature_name = "SepalWidthCm") {
+  group <- ifelse(test_data[[feature_name]] <= median(test_data[[feature_name]]), "Basso", "Alto")
+  group_df <- data.frame(group = group, covered = covered_vec)
+  fsc_coverage <- tapply(group_df$covered, group_df$group, mean)
+  cat("\nCopertura per sottogruppi (FSC):\n")
+  print(round(fsc_coverage, 3))
+  return(fsc_coverage)
+}
+evaluate_ssc <- function(width_vec, covered_vec) {
+  quantiles <- quantile(width_vec, probs = c(0.33, 0.66))
+  interval_size <- cut(width_vec,
+                       breaks = c(-Inf, quantiles[1], quantiles[2], Inf),
+                       labels = c("Piccolo", "Medio", "Grande"))
+  ssc_df <- data.frame(bin = interval_size, covered = covered_vec)
+  ssc_coverage <- tapply(ssc_df$covered, ssc_df$bin, mean)
+  cat("\nCopertura per ampiezza intervallo (SSC):\n")
+  print(round(ssc_coverage, 3))
+  return(ssc_coverage)
+}
+plot_fsc <- function(fsc_coverage, title = "FSC – Scalar Uncertainty") {
+  library(ggplot2)
+  df <- data.frame(
+    gruppo = names(fsc_coverage),
+    copertura = as.numeric(fsc_coverage)
+  )
+  
+  ggplot(df, aes(x = gruppo, y = copertura, fill = gruppo)) +
+    geom_col(width = 0.6) +
+    geom_hline(yintercept = 0.9, linetype = "dashed", color = "red") +
+    ylim(0, 1.05) +
+    labs(title = title, x = "Gruppo Sepal.Width", y = "Copertura empirica") +
+    theme_minimal() +
+    theme(legend.position = "none")
+}
+plot_ssc <- function(ssc_coverage, title = "SSC – Scalar Uncertainty") {
+  library(ggplot2)
+  df <- data.frame(
+    gruppo = names(ssc_coverage),
+    copertura = as.numeric(ssc_coverage)
+  )
+  
+  ggplot(df, aes(x = gruppo, y = copertura, fill = gruppo)) +
+    geom_col(width = 0.6) +
+    geom_hline(yintercept = 0.9, linetype = "dashed", color = "red") +
+    ylim(0, 1.05) +
+    labs(title = title, x = "Ampiezza intervallo", y = "Copertura empirica") +
+    theme_minimal() +
+    theme(legend.position = "none")
+}
