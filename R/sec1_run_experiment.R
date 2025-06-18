@@ -31,20 +31,16 @@
 #      4.6 Save Detailed CSV for Single Run
 #      4.7 Evaluate and Save Metrics for Single Run (Coverage, Set Sizes, FSC, SSC)
 
-cat("INFO: Sourcing shared R scripts for Experiment (Section 1 - Multiple Runs for Coverage)...\n")
-source("R/load_data.R")
-source("R/train_svm_model.R")
+cat("INFO: Sourcing shared R scripts for Experiment (Section 1 - Basic)...\n")
 source("R/conformal_predictors.R")
 source("R/evaluation_utils.R")
-source("R/utils.R")
-
-# --- 0. Setup: Load Libraries ---
-if (requireNamespace("ggplot2", quietly = TRUE)) {
-  library(ggplot2)
-  cat("INFO: ggplot2 package loaded.\n")
-}
+source("R/experimentation_utils.R")
 
 cat("INFO: --- Starting Experiment: Basic Conformal Prediction (Section 1) with Multiple Runs for Coverage ---\n")
+
+# --- 0. Setup: Load Libraries ---
+all_required_packages <- c("e1071", "dplyr", "ggplot2")
+check_and_load_packages(all_required_packages)
 
 # --- 0. Setup: Create Results Directories ---
 RESULTS_DIR <- "results"
@@ -71,7 +67,7 @@ all_empirical_coverages_basic <- numeric(N_RUNS)
 cat(paste0("INFO: Starting ", N_RUNS, " runs to collect marginal coverage data (Basic Method)...\n"))
 
 # --- 2.1 Load Full Dataset (once) ---
-iris_data_full <- load_iris_data() 
+iris_data_full <- load_iris_for_classification() 
 n_total <- nrow(iris_data_full)
 
 # --- 2.2 Define Loop-Specific Data Split Parameters ---

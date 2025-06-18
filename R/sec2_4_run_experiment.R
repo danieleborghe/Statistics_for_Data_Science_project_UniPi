@@ -37,19 +37,16 @@
 #          4.7.4 Single-Run SSC (Table, Plot)
 
 cat("INFO: Sourcing shared R scripts for Experiment (Section 2.4 - Conformalizing Bayes)...\n")
-source("R/load_data.R")
-source("R/train_svm_model.R")
 source("R/conformal_predictors.R") 
 source("R/evaluation_utils.R")
-source("R/utils.R")
-
-# --- 0. Setup: Load Libraries ---
-if (requireNamespace("ggplot2", quietly = TRUE)) {
-  library(ggplot2)
-  cat("INFO: ggplot2 package loaded.\n")
-}
+source("R/experimentation_utils.R")
 
 cat("INFO: --- Starting Experiment: Conformalizing Bayes (Section 2.4) with Multiple Runs for Coverage ---\n")
+
+# --- 0. Setup: Load Libraries ---
+# Check and install all required packages for the project
+all_required_packages <- c("e1071", "dplyr", "ggplot2")
+check_and_load_packages(all_required_packages)
 
 # --- 0. Setup: Create Results Directories ---
 RESULTS_DIR <- "results"
@@ -76,7 +73,7 @@ all_empirical_coverages_bayes <- numeric(N_RUNS)
 cat(paste0("INFO: Starting ", N_RUNS, " runs to collect marginal coverage data (Bayes Method)...\n"))
 
 # --- 2.1 Load Full Dataset (once) ---
-iris_data_full <- load_iris_data() 
+iris_data_full <- load_iris_for_classification() 
 n_total <- nrow(iris_data_full)
 
 # --- 2.2 Define Loop-Specific Data Split Parameters ---
@@ -249,7 +246,7 @@ if(!is.na(single_run_fsc_results$min_coverage)) {
 } else { cat("  FSC (BASE_SEED Run - Bayes): NA or no groups.\n") }
 
 # ---- 4.7.4 Single-Run SSC (Table, Plot) ----
-single_run_ssc_bins <- max(1, min(length(unique(single_run_set_sizes_bayes)), length(levels(iris_data_full$Species))))
+single_run_ssc_bins <- max(1, min(length(unique(single_run_set_sizes)), length(levels(iris_data_full$Species))))
 single_run_ssc_results <- calculate_ssc(single_run_prediction_sets, single_run_test_true_labels, num_bins_for_size = single_run_ssc_bins)
 cat("RESULT (BASE_SEED Run): SSC (Bayes):\n")
 if(!is.na(single_run_ssc_results$min_coverage)) {

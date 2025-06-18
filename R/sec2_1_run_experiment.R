@@ -36,19 +36,15 @@
 #          4.7.4 Single-Run SSC (Table, Plot)
 
 cat("INFO: Sourcing shared R scripts for Experiment (Section 2.1 - Adaptive)...\n")
-source("R/load_data.R")
-source("R/train_svm_model.R")
 source("R/conformal_predictors.R")
 source("R/evaluation_utils.R")
-source("R/utils.R")
-
-# --- 0. Setup: Load Libraries ---
-if (requireNamespace("ggplot2", quietly = TRUE)) {
-  library(ggplot2)
-  cat("INFO: ggplot2 package loaded.\n")
-}
+source("R/experimentation_utils.R")
 
 cat("INFO: --- Starting Experiment: Adaptive Prediction Sets (Section 2.1) with Multiple Runs for Coverage ---\n")
+
+# --- 0. Setup: Load Libraries ---
+all_required_packages <- c("e1071", "dplyr", "ggplot2")
+check_and_load_packages(all_required_packages)
 
 # --- 0. Setup: Create Results Directories ---
 RESULTS_DIR <- "results"
@@ -75,7 +71,7 @@ all_empirical_coverages_adaptive <- numeric(N_RUNS)
 cat(paste0("INFO: Starting ", N_RUNS, " runs to collect marginal coverage data (Adaptive Method)...\n"))
 
 # --- 2.1 Load Full Dataset (once) ---
-iris_data_full <- load_iris_data() 
+iris_data_full <- load_iris_for_classification() 
 n_total <- nrow(iris_data_full)
 
 # --- 2.2 Define Loop-Specific Data Split Parameters ---
