@@ -65,13 +65,13 @@ cat(paste0("INFO: I risultati verranno salvati in '", RESULTS_DIR, "/ (sottocart
 # --- 1. Impostazioni Esperimento ---
 cat("INFO: Definizione impostazioni esperimento...\n")
 # Step 1: Definisci il seed base per la riproducibilità.
-BASE_SEED <- 2024
+BASE_SEED <- 42
 # Step 2: Definisci il livello di significatività (alpha) per la predizione conforme.
 ALPHA_CONF <- 0.1
 # Step 3: Definisci la proporzione dei dati per l'addestramento.
 PROP_TRAIN <- 0.7
 # Step 4: Definisci la proporzione dei dati per la calibrazione.
-PROP_CALIB <- 0.15
+PROP_CALIB <- 0.1
 # Step 5: Definisci il numero di esecuzioni per generare la distribuzione.
 N_RUNS <- 100
 # Step 6: Definisci la variabile target per la regressione.
@@ -278,7 +278,7 @@ cat(paste0("INFO: Istogramma larghezza intervallo salvato in '", width_hist_file
 # ---- 4.7.3 FSC a Singola Esecuzione (Feature-Stratified Coverage) ----
 cat("\nINFO: --- Valutazione FSC per Singola Esecuzione BASE_SEED ---\n")
 # Step 1: Definisci il nome della feature per l'analisi FSC.
-fsc_feature_name <- "Sepal.Width"
+fsc_feature_name <- "Sepal.Length"
 cat(paste0("INFO: Calcolo FSC stratificato per '", fsc_feature_name, "'...\n"))
 
 # Step 2: Crea gruppi basati sulla feature per la stratificazione.

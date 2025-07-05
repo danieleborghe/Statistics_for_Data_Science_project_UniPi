@@ -69,7 +69,7 @@ cat(paste0("INFO: I risultati per ", METHOD_NAME_SUFFIX, " verranno salvati in '
 cat("INFO: Definizione impostazioni esperimento per Conformalizing Bayes...\n")
 # Step 1: Definisci il seed base per la riproducibilità.
 # È un seed diverso per questo specifico esperimento.
-BASE_SEED <- 44
+BASE_SEED <- 42
 # Step 2: Definisci il livello di significatività (alpha) per la predizione conforme.
 ALPHA_CONF <- 0.1
 # Step 3: Definisci la proporzione dei dati per l'addestramento del modello SVM sottostante.
@@ -297,7 +297,7 @@ cat(paste0("INFO: Istogramma dimensioni insiemi per Esecuzione BASE_SEED (Bayes)
 
 # ---- 4.7.3 FSC a Singola Esecuzione (Tabella, Grafico) ----
 # Step 1: Definisci il nome della feature per l'analisi FSC (Feature-conditional Coverage).
-single_run_fsc_feature_name <- "Sepal.Width"
+single_run_fsc_feature_name <- "Sepal.Length"
 # Step 2: Calcola i risultati FSC.
 single_run_fsc_results <- calculate_fsc(single_run_prediction_sets, single_run_test_true_labels,
                                         single_run_test_df[[single_run_fsc_feature_name]], feature_name = single_run_fsc_feature_name,
