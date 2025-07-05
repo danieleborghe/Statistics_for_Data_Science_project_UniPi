@@ -104,14 +104,16 @@ cat("\nINFO: --- Inizio Analisi #2: Larghezza Intervalli (Regressione) ---\n")
 tryCatch({
   # Step 2.1: Carica i dati grezzi delle larghezze.
   width_quantile <- read.csv("results/tables/section2_2_quantile_reg/widths_raw_BASESEED_RUN.csv")
-  width_scalar <- read.csv("results/tables/section2_3_scalar_uncert/widths_raw_BASESEED_RUN.csv")
+  width_scalar_abs <- read.csv("results/tables/section2_3_scalar_uncert/widths_raw_BASESEED_RUN.csv")
+  width_scalar_stddev <- read.csv("results/tables/section2_3_stddev_uncert/widths_raw_BASESEED_RUN.csv")
   
   # Step 2.2: Aggiungi identificatori di metodo.
   width_quantile$method <- "Reg. Quantile (Sez. 2.2)"
-  width_scalar$method <- "Incertezza Scalare (Sez. 2.3)"
+  width_scalar_abs$method <- "Incertezza Scalare (Residui)"
+  width_scalar_stddev$method <- "Incertezza Scalare (Std Dev)"
   
   # Step 2.3: Unisci i dataframe.
-  combined_widths <- dplyr::bind_rows(width_quantile, width_scalar)
+  combined_widths <- dplyr::bind_rows(width_quantile, width_scalar_abs, width_scalar_stddev) # <-- AGGIUNGI
   
   # Step 2.4: Calcola le medie
   width_means <- combined_widths %>%

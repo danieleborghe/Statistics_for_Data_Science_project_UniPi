@@ -120,16 +120,19 @@ cat("\nINFO: --- Inizio Analisi Comparativa #2: Metodi di Regressione ---\n")
 tryCatch({
   # Step 2.1: Carica i dati di copertura.
   coverage_quantile <- read.csv("results/tables/section2_2_quantile_reg/coverage_width_distribution.csv")
-  coverage_scalar <- read.csv("results/tables/section2_3_scalar_uncert/coverage_width_distribution.csv")
+  coverage_scalar_abs <- read.csv("results/tables/section2_3_scalar_uncert/coverage_width_distribution.csv")
+  coverage_scalar_stddev <- read.csv("results/tables/section2_3_stddev_uncert/coverage_width_distribution.csv") 
   
   # Step 2.2: Aggiungi identificatori di metodo.
   coverage_quantile$method <- "Reg. Quantile (Sez. 2.2)"
-  coverage_scalar$method <- "Incertezza Scalare (Sez. 2.3)"
+  coverage_scalar_abs$method <- "Incertezza Scalare (Residui)"
+  coverage_scalar_stddev$method <- "Incertezza Scalare (Std Dev)" 
   
   # Step 2.3: Unisci i dataframe.
   combined_regression_coverage <- dplyr::bind_rows(
     coverage_quantile[, c("coverage", "method")],
-    coverage_scalar[, c("coverage", "method")]
+    coverage_scalar_abs[, c("coverage", "method")], # <-- AGGIUNGI
+    coverage_scalar_stddev[, c("coverage", "method")] # <-- AGGIUNGI
   )
   
   # Step 2.4: Calcola le frequenze per l'istogramma e le medie.

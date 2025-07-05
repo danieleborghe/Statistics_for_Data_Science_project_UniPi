@@ -299,7 +299,7 @@ create_prediction_intervals_quantile <- function(models, new_data, q_hat) {
 }
 
 
-# --- Sezione 2.3: Conformalizing Scalar Uncertainty (Regressione) ---
+# --- Sezione 2.3: Conformalizing Scalar Uncertainty (Regressione- Residuals) ---
 
 train_primary_and_uncertainty_models <- function(formula, training_data, target_variable_name) {
   # Scopo: Addestra il modello di predizione primario ($f_{hat}$) e il modello di incertezza ($u_{hat}$).
@@ -394,5 +394,77 @@ create_prediction_intervals_scalar <- function(models, new_data, q_hat) {
   upper_bound <- test_f_preds + q_hat * test_u_preds
   
   # Step 5: Restituisce un data frame con i limiti inferiore e superiore.
+  return(data.frame(lower_bound = lower_bound, upper_bound = upper_bound))
+}
+
+# --- Sezione 2.3: Conformalizing Scalar Uncertainty (Regressione- Standard Deviation) ---
+
+train_mean_and_stddev_models <- function(formula, training_data, target_variable_name) {
+  # Scopo: Addestra il modello primario (media) e un modello per la varianza dell'errore.
+  
+  if (!requireNamespace("e1071", quietly = TRUE)) stop("Il pacchetto 'e1071' è richiesto.")
+  
+  # Step 2: Addestra il modello primario per la media (f_model).
+  mean_model <- e1071::svm(formula, data = training_data)
+  
+  # Step 3: Calcola i residui al quadrato sui dati di addestramento. # <-- MODIFICA
+  train_preds <- predict(mean_model, newdata = training_data)
+  # Calcoliamo (y - ŷ)^2 come proxy per la varianza.
+  train_sq_residuals <- (training_data[[target_variable_name]] - train_preds)^2
+  
+  # Step 4: Prepara il data frame per il modello di varianza.
+  variance_train_data <- training_data
+  variance_train_data$sq_residual <- train_sq_residuals # <-- MODIFICA (nome colonna)
+  
+  # Step 5: Costruisci la formula per il modello di varianza.
+  variance_formula_str <- paste("sq_residual ~ . -", target_variable_name) # <-- MODIFICA (nome colonna)
+  
+  # Step 6: Addestra il modello per la varianza dell'errore.
+  variance_model <- e1071::svm(as.formula(variance_formula_str), data = variance_train_data)
+  
+  # Step 7: Restituisce una lista contenente il modello per la media e quello per la varianza.
+  return(list(mean_model = mean_model, variance_model = variance_model))
+}
+
+get_non_conformity_scores_stddev <- function(models, calib_data, target_variable_name) {
+  # Scopo: Calcola i punteggi di non-conformità usando la stima della deviazione standard.
+  #        Il punteggio è |y - μ_hat(x)| / σ_hat(x).
+  
+  # Step 1: Ottieni le predizioni del modello per la media.
+  calib_mean_preds <- predict(models$mean_model, newdata = calib_data)
+  
+  # Step 2: Ottieni la stima della deviazione standard (σ_hat). # <-- MODIFICA
+  # Predici la varianza e poi calcola la radice quadrata.
+  # Usiamo pmax(0, ...) per evitare radici di numeri negativi se l'SVM predice valori < 0.
+  predicted_variance <- predict(models$variance_model, newdata = calib_data)
+  calib_sigma_hat <- sqrt(pmax(0, predicted_variance))
+  
+  # Step 3: Calcola i residui assoluti.
+  calib_abs_residuals <- abs(calib_data[[target_variable_name]] - calib_mean_preds)
+  
+  # Step 4: Calcola i punteggi di non-conformità.
+  # Aggiungiamo un valore molto piccolo al denominatore per evitare divisioni per zero.
+  scores <- calib_abs_residuals / (calib_sigma_hat + 1e-8)
+  
+  return(scores)
+}
+
+create_prediction_intervals_stddev <- function(models, new_data, q_hat) {
+  # Scopo: Crea intervalli di predizione conformi usando la stima della deviazione standard.
+  #        L'intervallo è [μ_hat(x) - q_hat * σ_hat(x), μ_hat(x) + q_hat * σ_hat(x)].
+  
+  # Step 1: Ottieni le predizioni del modello per la media.
+  test_mean_preds <- predict(models$mean_model, newdata = new_data)
+  
+  # Step 2: Ottieni la stima della deviazione standard (σ_hat) sul test set. # <-- MODIFICA
+  predicted_variance <- predict(models$variance_model, newdata = new_data)
+  test_sigma_hat <- sqrt(pmax(0, predicted_variance))
+  
+  # Step 3: Calcola il limite inferiore dell'intervallo.
+  lower_bound <- test_mean_preds - q_hat * test_sigma_hat
+  
+  # Step 4: Calcola il limite superiore dell'intervallo.
+  upper_bound <- test_mean_preds + q_hat * test_sigma_hat
+  
   return(data.frame(lower_bound = lower_bound, upper_bound = upper_bound))
 }

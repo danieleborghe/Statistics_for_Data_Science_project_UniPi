@@ -1,10 +1,11 @@
-# R/sec2_3_run_experiment.R
+# R/sec2_3_stddev_run_experiment.R
 #
 # Scopo:
 # Questo script esegue l'esperimento di Conformalizing Scalar Uncertainty Estimates (Stime di Incertezza Scalare Conforme)
-# (Sezione 2.3 dell'articolo). Implementa il metodo in cui l'incertezza è modellata predendo la magnitudo dei
-# residui assoluti di un modello di predizione primario. Lo script segue la struttura standard del progetto:
-# esecuzioni multiple per la distribuzione della copertura e una singola valutazione dettagliata.
+# (Sezione 2.3 dell'articolo). Implementa il metodo in cui l'incertezza è modellata stimando la deviazione standard
+# dei residui. Questo viene realizzato addestrando un secondo modello a predire i residui al quadrato 
+# (una proxy della varianza) e calcolando la radice quadrata della sua predizione. Lo script segue la 
+# struttura standard del progetto: esecuzioni multiple per la distribuzione della copertura e una singola valutazione dettagliata.
 #
 # Struttura:
 #   0. Setup: Creazione Directory Risultati, Caricamento Librerie
@@ -14,7 +15,7 @@
 #      2.2 Definizione Parametri di Divisione Dati Specifici per il Ciclo
 #      2.3 Avvio Ciclo N_RUNS
 #          - Iterazione X: Divisione Dati
-#          - Iterazione X: Addestramento Modello (Primario + Incertezza)
+#          - Iterazione X: Addestramento Modello (Media + Varianza)
 #          - Iterazione X: Calibrazione
 #          - Iterazione X: Predizione
 #          - Iterazione X: Memorizzazione Metriche (Copertura e Larghezza)
@@ -52,7 +53,7 @@ check_and_load_packages(all_required_packages)
 # --- 0. Setup: Creazione Directory Risultati ---
 # Step 1: Definisci i nomi delle directory per salvare i risultati.
 RESULTS_DIR <- "results"
-METHOD_NAME_SUFFIX <- "section2_3_scalar_uncert"
+METHOD_NAME_SUFFIX <- "section2_3_stddev_uncert"
 PLOTS_DIR <- file.path(RESULTS_DIR, "plots", METHOD_NAME_SUFFIX)
 TABLES_DIR <- file.path(RESULTS_DIR, "tables", METHOD_NAME_SUFFIX)
 
@@ -120,18 +121,18 @@ for (run_iter in 1:N_RUNS) {
   test_df_iter <- iris_data_full[shuffled_indices[(n_train_loop + n_calib_loop + 1):n_total], ]
   
   # ------ Iterazione X: Addestramento Modello (Primario + Incertezza) ------
-  # Step 1: Addestra il modello di predizione primario e il modello di incertezza sui dati di addestramento.
-  models_iter <- train_primary_and_uncertainty_models(REG_FORMULA, train_df_iter, TARGET_VARIABLE)
+  # Step 1: Addestra il modello di predizione di media e standard deviation
+  models_iter <- train_mean_and_stddev_models(REG_FORMULA, train_df_iter, TARGET_VARIABLE)
   
   # ------ Iterazione X: Calibrazione ------
   # Step 1: Calcola i punteggi di non-conformità scalari sui dati di calibrazione.
-  non_conf_scores_iter <- get_non_conformity_scores_scalar(models_iter, calib_df_iter, TARGET_VARIABLE)
+  non_conf_scores_iter <- get_non_conformity_scores_stddev(models_iter, calib_df_iter, TARGET_VARIABLE)
   # Step 2: Calcola il valore $q_{hat}$ basato sui punteggi di non-conformità.
   q_hat_iter <- calculate_q_hat(non_conf_scores_iter, ALPHA_CONF, n_calib = nrow(calib_df_iter))
   
   # ------ Iterazione X: Predizione ------
   # Step 1: Crea gli intervalli di predizione per il set di test utilizzando i modelli e il $q_{hat}$.
-  prediction_intervals_iter <- create_prediction_intervals_scalar(models_iter, test_df_iter, q_hat_iter)
+  prediction_intervals_iter <- create_prediction_intervals_stddev(models_iter, test_df_iter, q_hat_iter)
   
   # ------ Iterazione X: Memorizzazione Metriche ------
   # Step 1: Estrai i veri valori della variabile target dal set di test.
@@ -191,18 +192,18 @@ cat(paste0("INFO: Dimensioni dataset singola esecuzione: Addestramento=", nrow(t
 
 # --- 4.3 Addestramento Modello per Singola Esecuzione ---
 # Step 1: Addestra il modello primario e il modello di incertezza sui dati di addestramento della singola esecuzione.
-models <- train_primary_and_uncertainty_models(REG_FORMULA, train_df, TARGET_VARIABLE)
+models <- train_mean_and_stddev_models(REG_FORMULA, train_df, TARGET_VARIABLE)
 
 # --- 4.4 Calibrazione per Singola Esecuzione ---
 # Step 1: Calcola i punteggi di non-conformità scalari sui dati di calibrazione.
-non_conf_scores <- get_non_conformity_scores_scalar(models, calib_df, TARGET_VARIABLE)
+non_conf_scores <- get_non_conformity_scores_stddev(models, calib_df, TARGET_VARIABLE)
 # Step 2: Calcola $q_{hat}$ per la singola esecuzione.
 q_hat <- calculate_q_hat(non_conf_scores, ALPHA_CONF, n_calib = nrow(calib_df))
 cat(paste0("INFO: Calibrazione singola esecuzione completata. q_hat = ", round(q_hat, 4), "\n"))
 
 # --- 4.5 Predizione per Singola Esecuzione ---
 # Step 1: Crea gli intervalli di predizione per il set di test della singola esecuzione.
-prediction_intervals <- create_prediction_intervals_scalar(models, test_df, q_hat)
+prediction_intervals <- create_prediction_intervals_stddev(models, test_df, q_hat)
 
 # --- 4.6 Salvataggio CSV Dettagliato degli Intervalli di Test ---
 # Step 1: Crea un data frame con i risultati dettagliati degli intervalli.

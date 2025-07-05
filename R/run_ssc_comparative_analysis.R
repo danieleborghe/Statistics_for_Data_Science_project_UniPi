@@ -94,14 +94,16 @@ cat("\nINFO: --- Inizio Analisi Comparativa SSC #2: Regressione ---\n")
 tryCatch({
   # Step 2.1: Carica i dati SSC.
   ssc_quantile <- read.csv("results/tables/section2_2_quantile_reg/ssc_BASESEED_RUN.csv")
-  ssc_scalar <- read.csv("results/tables/section2_3_scalar_uncert/ssc_BASESEED_RUN.csv")
+  ssc_scalar_abs <- read.csv("results/tables/section2_3_scalar_uncert/ssc_BASESEED_RUN.csv")
+  ssc_scalar_stddev <- read.csv("results/tables/section2_3_stddev_uncert/ssc_BASESEED_RUN.csv")
   
   # Step 2.2: Aggiungi identificatori di metodo.
   ssc_quantile$method <- "Reg. Quantile (Sez. 2.2)"
-  ssc_scalar$method <- "Incertezza Scalare (Sez. 2.3)"
+  ssc_scalar_abs$method <- "Incertezza Scalare (Residui)"
+  ssc_scalar_stddev$method <- "Incertezza Scalare (Std Dev)"
   
   # Step 2.3: Unisci i dataframe.
-  combined_ssc_regression <- dplyr::bind_rows(ssc_quantile, ssc_scalar)
+  combined_ssc_regression <- dplyr::bind_rows(ssc_quantile, ssc_scalar_abs, ssc_scalar_stddev) # <-- AGGIUNGI
   
   # Step 2.4: Ordina i gruppi di larghezza in modo logico.
   combined_ssc_regression$size_group <- factor(

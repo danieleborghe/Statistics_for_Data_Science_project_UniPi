@@ -102,14 +102,16 @@ cat("\nINFO: --- Inizio Analisi Comparativa FSC #2: Regressione ---\n")
 tryCatch({
   # Step 2.1: Carica i dati FSC.
   fsc_quantile <- read.csv("results/tables/section2_2_quantile_reg/fsc_by_Sepal.Length_BASESEED_RUN.csv")
-  fsc_scalar <- read.csv("results/tables/section2_3_scalar_uncert/fsc_by_Sepal.Length_BASESEED_RUN.csv")
+  fsc_scalar_abs <- read.csv("results/tables/section2_3_scalar_uncert/fsc_by_Sepal.Length_BASESEED_RUN.csv")
+  fsc_scalar_stddev <- read.csv("results/tables/section2_3_stddev_uncert/fsc_by_Sepal.Length_BASESEED_RUN.csv")
   
   # Step 2.2: Aggiungi identificatori di metodo.
   fsc_quantile$method <- "Reg. Quantile (Sez. 2.2)"
-  fsc_scalar$method <- "Incertezza Scalare (Sez. 2.3)"
+  fsc_scalar_abs$method <- "Incertezza Scalare (Residui)"
+  fsc_scalar_stddev$method <- "Incertezza Scalare (Std Dev)"
   
   # Step 2.3: Unisci i dataframe.
-  combined_fsc_regression <- dplyr::bind_rows(fsc_quantile, fsc_scalar)
+  combined_fsc_regression <- dplyr::bind_rows(fsc_quantile, fsc_scalar_abs, fsc_scalar_stddev) # <-- AGGIUNGI
   
   # Step 2.4: Crea il grafico a barre comparativo.
   plot_fsc_regression <- ggplot(
