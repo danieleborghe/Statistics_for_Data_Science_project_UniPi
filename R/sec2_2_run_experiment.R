@@ -199,6 +199,28 @@ non_conf_scores <- get_non_conformity_scores_quantile(quantile_models, calib_df,
 q_hat <- calculate_q_hat(non_conf_scores, ALPHA_CONF, n_calib = nrow(calib_df))
 cat(paste0("INFO: Calibrazione singola esecuzione completata. q_hat = ", round(q_hat, 4), "\n"))
 
+# --- BLOCCO PER ANALISI ADATTIVITÀ (Quantile) ---
+# Scopo: Salvare punteggi e residui per l'analisi di adattività.
+
+# Step 1: Calcola i residui assoluti sul set di calibrazione.
+# Per la regressione quantile, usiamo come riferimento la distanza dal centro dell'intervallo predetto.
+q_hat_lower_calib <- predict(quantile_models$lower_model, newdata = calib_df)
+q_hat_upper_calib <- predict(quantile_models$upper_model, newdata = calib_df)
+midpoint_calib <- (q_hat_lower_calib + q_hat_upper_calib) / 2
+calib_residuals <- abs(calib_df[[TARGET_VARIABLE]] - midpoint_calib)
+
+# Step 2: Crea un data frame. I 'non_conf_scores' sono già stati calcolati.
+adaptiveness_data <- data.frame(
+  non_conformity_score = non_conf_scores,
+  absolute_residual = calib_residuals
+)
+
+# Step 3: Salva il file.
+adaptiveness_filename <- file.path(TABLES_DIR, "adaptiveness_data_BASESEED_RUN.csv")
+write.csv(adaptiveness_data, adaptiveness_filename, row.names = FALSE)
+cat(paste0("INFO: Dati per analisi di adattività salvati in '", adaptiveness_filename, "'\n"))
+# --- FINE BLOCCO ---
+
 # --- 4.5 Predizione per Singola Esecuzione ---
 # Step 1: Crea gli intervalli di predizione per il set di test della singola esecuzione.
 prediction_intervals <- create_prediction_intervals_quantile(quantile_models, test_df, q_hat)

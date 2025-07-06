@@ -200,6 +200,30 @@ non_conf_scores <- get_non_conformity_scores_scalar(models, calib_df, TARGET_VAR
 q_hat <- calculate_q_hat(non_conf_scores, ALPHA_CONF, n_calib = nrow(calib_df))
 cat(paste0("INFO: Calibrazione singola esecuzione completata. q_hat = ", round(q_hat, 4), "\n"))
 
+# --- BLOCCO PER ANALISI ADATTIVITÀ (Residui) ---
+# Scopo: Salvare punteggi e residui per l'analisi di adattività.
+
+# Step 1: Calcola i residui assoluti sul set di calibrazione.
+calib_preds <- predict(models$f_model, newdata = calib_df)
+calib_residuals <- abs(calib_df[[TARGET_VARIABLE]] - calib_preds)
+
+# Step 2: Crea un data frame che lega i punteggi ai residui.
+adaptiveness_data <- data.frame(
+  non_conformity_score = non_conf_scores,
+  absolute_residual = calib_residuals
+)
+
+# Step 3: Salva il data frame in un file CSV.
+adaptiveness_filename <- file.path(TABLES_DIR, "adaptiveness_data_BASESEED_RUN.csv")
+write.csv(adaptiveness_data, adaptiveness_filename, row.names = FALSE)
+cat(paste0("INFO: Dati per analisi di adattività salvati in '", adaptiveness_filename, "'\n"))
+# --- FINE BLOCCO ---
+
+# Step 3: Salva il data frame in un file CSV.
+adaptiveness_filename <- file.path(TABLES_DIR, "adaptiveness_data_BASESEED_RUN.csv")
+write.csv(adaptiveness_data, adaptiveness_filename, row.names = FALSE)
+cat(paste0("INFO: Dati per analisi di adattività salvati in '", adaptiveness_filename, "'\n"))
+
 # --- 4.5 Predizione per Singola Esecuzione ---
 # Step 1: Crea gli intervalli di predizione per il set di test della singola esecuzione.
 prediction_intervals <- create_prediction_intervals_scalar(models, test_df, q_hat)
