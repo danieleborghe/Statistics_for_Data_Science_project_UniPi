@@ -12,12 +12,12 @@
 #   - create_prediction_sets_adaptive(...): Crea gli insiemi di predizione adattivi per la classificazione.
 #   - get_non_conformity_scores_bayes(...): Calcola i punteggi di non-conformità di Bayes per la classificazione.
 #   - create_prediction_sets_bayes(...): Crea gli insiemi di predizione di Bayes per la classificazione.
-#   - train_quantile_models(...): Addestra modelli di regressione quantile.
 #   - get_non_conformity_scores_quantile(...): Calcola i punteggi di non-conformità per la regressione quantile.
 #   - create_prediction_intervals_quantile(...): Crea gli intervalli di predizione per la regressione quantile.
-#   - train_primary_and_uncertainty_models(...): Addestra i modelli primari e di incertezza per la regressione.
 #   - get_non_conformity_scores_scalar(...): Calcola i punteggi di non-conformità scalari per la regressione.
 #   - create_prediction_intervals_scalar(...): Crea gli intervalli di predizione scalari per la regressione.
+#   - get_non_conformity_scores_stddev(...): Calcola i punteggi di non-conformità scalari per la regressione (con std. dev.).
+#   - create_prediction_intervals_stddev(...): Crea gli intervalli di predizione scalari per la regressione (con std. dev.).
 
 # --- Funzione di Utilità (Condivisa) ---
 
@@ -36,18 +36,12 @@ calculate_q_hat <- function(non_conformity_scores, alpha, n_calib) {
   # Questo è basato sulla formula dell'articolo per aggiustare il quantile.
   prob_level <- ceiling((n_calib + 1) * (1 - alpha)) / n_calib
   
-  # Step 2: Assicura che il livello di probabilità sia nel range [0, 1].
-  # Previene errori nel caso di valori estremi di alpha o n_calib.
-  prob_level <- min(1, max(0, prob_level))
-  
   # Step 3: Calcola $q_{hat}$ utilizzando il tipo 1 per l'inverso della ECDF (Funzione di Distribuzione Cumulativa Empirica).
-  # `type = 1` garantisce un comportamento specifico del quantile che è appropriato per la Predizione Conforme.
   q_hat <- quantile(non_conformity_scores, probs = prob_level, type = 1, names = FALSE)
   
   # Step 4: Restituisce il valore $q_{hat}$.
   return(q_hat)
 }
-
 
 # --- Sezione 1: Predizione Conforme Base (Classificazione) ---
 
@@ -63,9 +57,12 @@ get_non_conformity_scores_basic <- function(predicted_probs_matrix, true_labels)
   
   # Step 1: Calcola i punteggi di non-conformità.
   # Per ogni campione, seleziona la probabilità predetta della sua vera classe e la sottrai da 1.
-  # `cbind(1:nrow(predicted_probs_matrix), match(true_labels, colnames(predicted_probs_matrix)))` crea una matrice
-  # di indici per selezionare la probabilità corretta per ogni riga.
-  scores <- 1 - predicted_probs_matrix[cbind(1:nrow(predicted_probs_matrix), match(true_labels, colnames(predicted_probs_matrix)))]
+  scores <- 1 - predicted_probs_matrix[
+    cbind( # cbind crea una matrice con due colonne 
+      1:nrow(predicted_probs_matrix), # prima colonna: indice dell'istanza
+      match(true_labels, colnames(predicted_probs_matrix)) # seconda colonna: numero della colonna con la prob. della vera classe
+    )
+  ]
   
   # Step 2: Restituisce il vettore dei punteggi.
   return(scores)
@@ -86,9 +83,13 @@ create_prediction_sets_basic <- function(predicted_probs_matrix_new_data, q_hat)
   
   # Step 2: Applica la soglia a ciascuna riga (campione) della matrice di probabilità.
   # Per ogni riga, seleziona i nomi delle colonne (classi) dove la probabilità predetta è maggiore o uguale alla soglia.
-  prediction_sets <- apply(predicted_probs_matrix_new_data, 1, function(row) {
-    names(row)[row >= threshold]
-  })
+  prediction_sets <- apply(
+    predicted_probs_matrix_new_data, 
+    1, # 1: applica a ciascuna riga
+    function(row) {
+      names(row)[row >= threshold]
+    }
+  )
   
   # Step 3: Restituisce la lista degli insiemi di predizione.
   return(prediction_sets)
@@ -218,36 +219,6 @@ create_prediction_sets_bayes <- function(predicted_probs_matrix_new_data, q_hat_
 
 # --- Sezione 2.2: Conformalized Quantile Regression (Regressione) ---
 
-train_quantile_models <- function(formula, training_data, alpha) {
-  # Scopo: Addestra due modelli di regressione quantile per i limiti inferiore e superiore.
-  #
-  # Parametri:
-  #   - formula: La formula di regressione (es. `Y ~ .`).
-  #   - training_data: Il data frame per l'addestramento.
-  #   - alpha: Il livello di significatività (es. 0.1).
-  #
-  # Ritorna: Una lista contenente i modelli addestrati `lower_model` e `upper_model`.
-  
-  # Step 1: Verifica la presenza del pacchetto 'quantreg'.
-  # Se non è installato, interrompe l'esecuzione e informa l'utente.
-  if (!requireNamespace("quantreg", quietly = TRUE)) stop("Il pacchetto 'quantreg' è richiesto per questa funzione.")
-  
-  # Step 2: Definisce i quantili (tau) per i modelli di regressione quantile.
-  # tau_lower per il limite inferiore e tau_upper per il limite superiore.
-  tau_lower <- alpha / 2
-  tau_upper <- 1 - (alpha / 2)
-  
-  # Step 3: Addestra il modello per il limite inferiore.
-  # Utilizza la funzione `rq` del pacchetto `quantreg`.
-  model_lower <- quantreg::rq(formula, data = training_data, tau = tau_lower)
-  
-  # Step 4: Addestra il modello per il limite superiore.
-  model_upper <- quantreg::rq(formula, data = training_data, tau = tau_upper)
-  
-  # Step 5: Restituisce una lista contenente entrambi i modelli addestrati.
-  return(list(lower_model = model_lower, upper_model = model_upper))
-}
-
 get_non_conformity_scores_quantile <- function(models, calib_data, target_variable_name) {
   # Scopo: Calcola i punteggi di non-conformità per la regressione quantile.
   #        Il punteggio è $\max(lower\_bound(X) - Y, Y - upper\_bound(X))$.
@@ -298,49 +269,7 @@ create_prediction_intervals_quantile <- function(models, new_data, q_hat) {
   return(data.frame(lower_bound = final_lower, upper_bound = final_upper))
 }
 
-
 # --- Sezione 2.3: Conformalizing Scalar Uncertainty (Regressione- Residuals) ---
-
-train_primary_and_uncertainty_models <- function(formula, training_data, target_variable_name) {
-  # Scopo: Addestra il modello di predizione primario ($f_{hat}$) e il modello di incertezza ($u_{hat}$).
-  #        Il modello di incertezza apprende a predire i residui assoluti del modello primario.
-  #
-  # Parametri:
-  #   - formula: La formula di regressione per il modello primario.
-  #   - training_data: Il data frame per l'addestramento.
-  #   - target_variable_name: Nome stringa della variabile target.
-  #
-  # Ritorna: Una lista contenente i modelli addestrati `f_model` (primario) e `u_model` (incertezza).
-  
-  # Step 1: Verifica la presenza del pacchetto 'e1071'.
-  # Se non è installato, interrompe l'esecuzione e informa l'utente.
-  if (!requireNamespace("e1071", quietly = TRUE)) stop("Il pacchetto 'e1071' è richiesto per questa funzione.")
-  
-  # Step 2: Addestra il modello primario ($f_{hat}$).
-  # Qui viene utilizzato un modello SVM per la regressione.
-  f_model <- e1071::svm(formula, data = training_data)
-  
-  # Step 3: Calcola i residui assoluti sui dati di addestramento.
-  # Questi residui saranno la variabile target per il modello di incertezza.
-  train_preds <- predict(f_model, newdata = training_data)
-  train_abs_residuals <- abs(training_data[[target_variable_name]] - train_preds)
-  
-  # Step 4: Prepara il data frame per l'addestramento del modello di incertezza.
-  # Aggiunge i residui assoluti come nuova colonna.
-  u_train_data <- training_data
-  u_train_data$abs_residual <- train_abs_residuals
-  
-  # Step 5: Costruisci la formula per il modello di incertezza.
-  # La variabile target è `abs_residual`, e si esclude la variabile originale target.
-  u_formula_str <- paste("abs_residual ~ . -", target_variable_name)
-  
-  # Step 6: Addestra il modello di incertezza ($u_{hat}$).
-  # Anche qui viene utilizzato un modello SVM.
-  u_model <- e1071::svm(as.formula(u_formula_str), data = u_train_data)
-  
-  # Step 7: Restituisce una lista contenente il modello primario e il modello di incertezza.
-  return(list(f_model = f_model, u_model = u_model))
-}
 
 get_non_conformity_scores_scalar <- function(models, calib_data, target_variable_name) {
   # Scopo: Calcola i punteggi di non-conformità per il metodo di incertezza scalare.
@@ -399,33 +328,6 @@ create_prediction_intervals_scalar <- function(models, new_data, q_hat) {
 
 # --- Sezione 2.3: Conformalizing Scalar Uncertainty (Regressione- Standard Deviation) ---
 
-train_mean_and_stddev_models <- function(formula, training_data, target_variable_name) {
-  # Scopo: Addestra il modello primario (media) e un modello per la varianza dell'errore.
-  
-  if (!requireNamespace("e1071", quietly = TRUE)) stop("Il pacchetto 'e1071' è richiesto.")
-  
-  # Step 2: Addestra il modello primario per la media (f_model).
-  mean_model <- e1071::svm(formula, data = training_data)
-  
-  # Step 3: Calcola i residui al quadrato sui dati di addestramento. # <-- MODIFICA
-  train_preds <- predict(mean_model, newdata = training_data)
-  # Calcoliamo (y - ŷ)^2 come proxy per la varianza.
-  train_sq_residuals <- (training_data[[target_variable_name]] - train_preds)^2
-  
-  # Step 4: Prepara il data frame per il modello di varianza.
-  variance_train_data <- training_data
-  variance_train_data$sq_residual <- train_sq_residuals # <-- MODIFICA (nome colonna)
-  
-  # Step 5: Costruisci la formula per il modello di varianza.
-  variance_formula_str <- paste("sq_residual ~ . -", target_variable_name) # <-- MODIFICA (nome colonna)
-  
-  # Step 6: Addestra il modello per la varianza dell'errore.
-  variance_model <- e1071::svm(as.formula(variance_formula_str), data = variance_train_data)
-  
-  # Step 7: Restituisce una lista contenente il modello per la media e quello per la varianza.
-  return(list(mean_model = mean_model, variance_model = variance_model))
-}
-
 get_non_conformity_scores_stddev <- function(models, calib_data, target_variable_name) {
   # Scopo: Calcola i punteggi di non-conformità usando la stima della deviazione standard.
   #        Il punteggio è |y - μ_hat(x)| / σ_hat(x).
@@ -435,8 +337,8 @@ get_non_conformity_scores_stddev <- function(models, calib_data, target_variable
   
   # Step 2: Ottieni la stima della deviazione standard (σ_hat). # <-- MODIFICA
   # Predici la varianza e poi calcola la radice quadrata.
-  # Usiamo pmax(0, ...) per evitare radici di numeri negativi se l'SVM predice valori < 0.
   predicted_variance <- predict(models$variance_model, newdata = calib_data)
+  # Usiamo pmax(0, ...) per evitare radici di numeri negativi se l'SVM predice valori < 0.
   calib_sigma_hat <- sqrt(pmax(0, predicted_variance))
   
   # Step 3: Calcola i residui assoluti.
@@ -458,6 +360,7 @@ create_prediction_intervals_stddev <- function(models, new_data, q_hat) {
   
   # Step 2: Ottieni la stima della deviazione standard (σ_hat) sul test set. # <-- MODIFICA
   predicted_variance <- predict(models$variance_model, newdata = new_data)
+  # Usiamo pmax(0, ...) per evitare radici di numeri negativi se l'SVM predice valori < 0.
   test_sigma_hat <- sqrt(pmax(0, predicted_variance))
   
   # Step 3: Calcola il limite inferiore dell'intervallo.

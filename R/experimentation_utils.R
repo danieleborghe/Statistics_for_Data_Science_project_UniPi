@@ -8,7 +8,7 @@
 #   - check_and_load_packages(...): Controlla, installa e carica i pacchetti richiesti.
 #   - load_iris_for_classification(...): Carica e prepara il dataset Iris per la classificazione.
 #   - load_iris_for_regression(...): Carica e prepara il dataset Iris per la regressione.
-#   - train_svm_model(...): Addestra un modello SVM per la classificazione.
+#   - train_svm_classification_model(...): Addestra un modello SVM per la classificazione.
 #   - predict_svm_probabilities(...): Predice le probabilità di classe da un modello SVM addestrato.
 #   - save_detailed_test_predictions(...): Salva un CSV dettagliato delle predizioni di test.
 #   - save_plot_to_png(...)
@@ -24,29 +24,17 @@ check_and_load_packages <- function(required_packages) {
   #
   # Ritorna: Nessuno. Stampa messaggi sulla console e carica i pacchetti.
   
-  # Step 1: Inizia il processo di controllo e caricamento dei pacchetti.
-  cat("INFO: Avvio controllo e caricamento dipendenze pacchetti...\n")
-  
-  # Step 2: Itera su ciascun pacchetto richiesto.
+  # Step 1: Itera su ciascun pacchetto richiesto.
   for (pkg in required_packages) {
-    # Step 2.1: Controlla se il pacchetto è già installato.
+    # Step 1.1: Controlla se il pacchetto è già installato.
     if (!requireNamespace(pkg, quietly = TRUE)) {
       # Step 2.2: Se il pacchetto non è trovato, tenta di installarlo.
-      cat(paste("INFO: Pacchetto '", pkg, "' non trovato. Tentativo di installazione...\n", sep = ""))
       install.packages(pkg, dependencies = TRUE)
     }
     
-    # Step 2.3: Carica il pacchetto, gestendo eventuali errori.
-    tryCatch({
-      library(pkg, character.only = TRUE)
-      # Non è più necessario stampare il successo del caricamento qui,
-      # il messaggio finale di completamento sarà sufficiente.
-    }, error = function(e) {
-      warning(paste("WARN: Fallito il caricamento del pacchetto '", pkg, "'. Per favore, verifica l'installazione.\nErrore: ", e$message, sep = ""))
-    })
+    # Step 1.2: Carica il pacchetto
+    library(pkg, character.only = TRUE)
   }
-  # Step 3: Conclude il processo di controllo e caricamento dei pacchetti.
-  cat("INFO: Controllo e caricamento dipendenze pacchetti completato.\n")
 }
 
 
@@ -59,11 +47,9 @@ load_iris_for_classification <- function() {
   # Ritorna: Un data frame contenente il dataset Iris rimescolato, pronto per la classificazione.
   
   # Step 1: Carica il dataset Iris.
-  cat("INFO: Caricamento dataset Iris per la classificazione...\n")
   data(iris) # Carica il dataset Iris dai dataset predefiniti di R
   
-  # Step 2: Assicura che la colonna 'Species' sia trattata come un fattore.
-  # Questo è cruciale per i modelli di classificazione.
+  # Step 2: Assicura che la colonna 'Species' sia trattata come un fattore (cruciale per i modelli di classificazione)
   iris$Species <- as.factor(iris$Species)
   
   # Step 3: Rimescola il dataset per garantire un campionamento casuale nelle fasi successive.
@@ -72,10 +58,8 @@ load_iris_for_classification <- function() {
   iris_shuffled <- iris[sample(nrow(iris)), ]
   
   # Step 4: Restituisce il dataset Iris rimescolato e preparato.
-  cat("INFO: Dataset Iris caricato, 'Species' convertito a fattore, e dati rimescolati.\n")
   return(iris_shuffled)
 }
-
 
 load_iris_for_regression <- function() {
   # Scopo: Carica il dataset Iris e lo prepara per un task di regressione
@@ -86,7 +70,6 @@ load_iris_for_regression <- function() {
   # Ritorna: Un data frame rimescolato del dataset Iris adatto per la regressione.
   
   # Step 1: Carica il dataset Iris.
-  cat("INFO: Caricamento dataset Iris per la regressione...\n")
   data(iris)
   
   # Step 2: Rimuove la colonna 'Species', che non è necessaria per la regressione.
@@ -97,41 +80,29 @@ load_iris_for_regression <- function() {
   shuffled_iris <- iris_regression[sample(nrow(iris_regression)), ]
   
   # Step 4: Restituisce il dataset Iris rimescolato e preparato per la regressione.
-  cat("INFO: Dataset Iris caricato e rimescolato per il task di regressione.\n")
   return(shuffled_iris)
 }
 
-
-train_svm_model <- function(formula, training_data) {
+train_svm_classification_model <- function(formula, training_data) {
   # Scopo: Addestra un modello SVM per la classificazione utilizzando la formula specificata
   #        e i dati di addestramento, con l'abilitazione della stima della probabilità.
   #
   # Parametri:
-  #   - formula: Una formula R che specifica il modello (es. `Species ~ .`).
+  #   - formula: Una formula R che specifica il modello
   #   - training_data: Un data frame contenente i dati di addestramento.
   #
   # Ritorna: Un oggetto modello SVM addestrato dal pacchetto 'e1071'.
   
-  # Step 1: Inizia l'addestramento del modello SVM.
-  cat("INFO: Addestramento modello SVM per la classificazione...\n")
-  
-  # Step 2: Estrai il nome della variabile target dalla formula.
+  # Step 1: Estrai il nome della variabile target dalla formula.
   target_var_name <- all.vars(formula)[1]
   
-  # Step 3: Verifica che la variabile target sia un fattore.
-  # Questo è un requisito per la classificazione SVM.
-  if (!is.factor(training_data[[target_var_name]])) {
-    stop(paste("ERRORE: La variabile target '", target_var_name, "' deve essere un fattore per la classificazione SVM.", sep = ""))
-  }
-  
-  # Step 4: Addestra il modello SVM.
-  # `kernel = "radial"` è un kernel comune per SVM.
-  # `probability = TRUE` è essenziale per ottenere le probabilità di classe.
+  # Step 2: Addestra il modello SVM.
+  # `kernel = "radial"`
+  # `probability = TRUE` ci fornisce le probabilità
   # `scale = TRUE` scala i dati prima dell'addestramento.
   model <- e1071::svm(formula, data = training_data, kernel = "radial", probability = TRUE, scale = TRUE)
   
-  # Step 5: Conclude l'addestramento del modello SVM.
-  cat("INFO: Addestramento modello SVM completato.\n")
+  # Step 3: Conclude l'addestramento del modello SVM.
   return(model)
 }
 
@@ -139,33 +110,158 @@ predict_svm_probabilities <- function(svm_model, newdata) {
   # Scopo: Predice le probabilità di classe per nuovi dati utilizzando un modello SVM di classificazione addestrato.
   #
   # Parametri:
-  #   - svm_model: Un oggetto modello SVM addestrato dalla funzione `train_svm_model()`.
+  #   - svm_model: Un oggetto modello SVM addestrato dalla funzione `train_svm_classification_model()`.
   #   - newdata: Un data frame per il quale predire le probabilità.
   #
   # Ritorna: Una matrice di probabilità di classe, dove le righe sono i campioni e le colonne sono le classi.
   
   # Step 1: Effettua le predizioni utilizzando il modello SVM.
-  # Assicurati che `probability = TRUE` sia passato per ottenere l'attributo delle probabilità.
   predictions_object <- predict(svm_model, newdata, probability = TRUE)
   
   # Step 2: Estrai l'attributo delle probabilità dall'oggetto di predizione.
   probabilities <- attr(predictions_object, "probabilities")
   
-  # Step 3: Verifica che le probabilità siano state recuperate correttamente.
-  # Se `is.null(probabilities)` è vero, significa che il modello non è stato addestrato con `probability=TRUE`.
-  if (is.null(probabilities)) {
-    stop("ERRORE: Impossibile recuperare le probabilità dalla predizione SVM. Il modello è stato addestrato con probability=TRUE?")
-  }
-  # Step 4: Restituisce la matrice delle probabilità.
+  # Step 3: Restituisce la matrice delle probabilità.
   return(probabilities)
 }
 
+train_svm_regression_model <- function(formula, training_data) {
+  # Scopo: Addestra un modello SVM per la regressione utilizzando la formula specificata
+  #        e i dati di addestramento.
+  #
+  # Parametri:
+  #   - formula: Una formula R che specifica il modello
+  #   - training_data: Un data frame contenente i dati di addestramento.
+  #
+  # Ritorna: Un oggetto modello SVM addestrato dal pacchetto 'e1071' per la regressione.
+  
+  # Step 1: Estrai il nome della variabile target dalla formula.
+  target_var_name <- all.vars(formula)[1]
+  
+  # Step 2: Addestra il modello SVM per la regressione.
+  # Utilizza il kernel radiale e scala i dati.
+  model <- e1071::svm(formula, data = training_data, type = "eps-regression", kernel = "radial", scale = TRUE)
+  
+  # Step 4: Restituisce il modello addestrato.
+  return(model)
+}
 
-save_detailed_test_predictions <- function(test_true_labels,
-                                           prediction_sets_list,
-                                           test_probs_matrix,
-                                           output_directory,
-                                           base_filename) {
+predict_svm_regression_values <- function(svm_regression_model, newdata) {
+  # Scopo: Predice i valori numerici per nuovi dati utilizzando un modello SVM di regressione addestrato.
+  #
+  # Parametri:
+  #   - svm_regression_model: Un oggetto modello SVM addestrato per la regressione.
+  #   - newdata: Un data frame per il quale predire i valori.
+  #
+  # Ritorna: Un vettore numerico di valori predetti.
+  
+  # Step 1: Effettua le predizioni utilizzando il modello SVM di regressione.
+  predictions <- predict(svm_regression_model, newdata = newdata)
+  
+  # Step 2: Restituisce il vettore delle predizioni.
+  return(predictions)
+}
+
+train_quantile_models <- function(formula, training_data, alpha) {
+  # Scopo: Addestra due modelli di regressione quantile per i limiti inferiore e superiore.
+  #
+  # Parametri:
+  #   - formula: La formula di regressione
+  #   - training_data: Il data frame per l'addestramento.
+  #   - alpha: Il livello di significatività
+  #
+  # Ritorna: Una lista contenente i modelli addestrati `lower_model` e `upper_model`.
+  
+  # Step 1: Definisce i quantili (tau) per i modelli di regressione quantile.
+  # tau_lower per il limite inferiore e tau_upper per il limite superiore.
+  tau_lower <- alpha / 2
+  tau_upper <- 1 - (alpha / 2)
+  
+  # Step 2: Addestra il modello per il limite inferiore.
+  # Utilizza la funzione `rq` del pacchetto `quantreg`.
+  model_lower <- quantreg::rq(formula, data = training_data, tau = tau_lower)
+  
+  # Step 3: Addestra il modello per il limite superiore.
+  model_upper <- quantreg::rq(formula, data = training_data, tau = tau_upper)
+  
+  # Step 5: Restituisce una lista contenente entrambi i modelli addestrati.
+  return(list(lower_model = model_lower, upper_model = model_upper))
+}
+
+train_primary_and_uncertainty_models <- function(formula, training_data, target_variable_name) {
+  # Scopo: Addestra il modello di predizione primario ($f_{hat}$) e il modello di incertezza ($u_{hat}$).
+  #        Il modello di incertezza apprende a predire i residui assoluti del modello primario.
+  #
+  # Parametri:
+  #   - formula: La formula di regressione per il modello primario.
+  #   - training_data: Il data frame per l'addestramento.
+  #   - target_variable_name: Nome stringa della variabile target.
+  #
+  # Ritorna: Una lista contenente i modelli addestrati `f_model` (primario) e `u_model` (incertezza).
+  
+  # Step 1: Addestra il modello primario ($f_{hat}$) usando la nuova funzione dedicata.
+  f_model <- train_svm_regression_model(formula, training_data)
+  
+  # Step 2: Calcola le predizioni del modello primario sui dati di addestramento
+  #         e i residui assoluti.
+  train_preds <- predict_svm_regression_values(f_model, newdata = training_data)
+  train_abs_residuals <- abs(training_data[[target_variable_name]] - train_preds)
+  
+  # Step 3: Prepara il data frame per l'addestramento del modello di incertezza.
+  u_train_data <- training_data
+  u_train_data$abs_residual <- train_abs_residuals
+  
+  # Step 4: Costruisci la formula per il modello di incertezza.
+  u_formula_str <- paste("abs_residual ~ . -", target_variable_name)
+  
+  # Step 5: Addestra il modello di incertezza ($u_{hat}$) usando la nuova funzione dedicata.
+  u_model <- train_svm_regression_model(as.formula(u_formula_str), data = u_train_data)
+  
+  # Step 6: Restituisce una lista contenente il modello primario e il modello di incertezza.
+  return(list(f_model = f_model, u_model = u_model))
+}
+
+train_mean_and_stddev_models <- function(formula, training_data, target_variable_name) {
+  # Scopo: Addestra il modello primario per la media e un modello per la varianza dell'errore
+  #        utilizzando SVM per la regressione.
+  #
+  # Parametri:
+  #   - formula: La formula di regressione per il modello primario (media).
+  #   - training_data: Il data frame per l'addestramento.
+  #   - target_variable_name: Nome stringa della variabile target originale.
+  #
+  # Ritorna: Una lista contenente i modelli addestrati `mean_model` (per la media)
+  #          e `variance_model` (per la varianza dei residui).
+  
+  # Step 1: Addestra il modello primario per la media (`mean_model`).
+  # Questo modello apprende a predire i valori medi della variabile target.
+  mean_model <- train_svm_regression_model(formula, training_data)
+  
+  # Step 2: Calcola le predizioni del modello per la media sui dati di addestramento.
+  train_preds <- predict_svm_regression_values(mean_model, newdata = training_data)
+  
+  # Step 3: Calcola i residui al quadrato.
+  # Questi saranno la variabile target per il modello di varianza,
+  train_sq_residuals <- (training_data[[target_variable_name]] - train_preds)^2
+  
+  # Step 4: Prepara il data frame per l'addestramento del modello di varianza.
+  # Aggiunge i residui al quadrato come nuova colonna.
+  variance_train_data <- training_data
+  variance_train_data$sq_residual <- train_sq_residuals
+  
+  # Step 5: Costruisci la formula per il modello di varianza.
+  # La variabile target è `sq_residual`, e si esclude la variabile originale target.
+  variance_formula_str <- paste("sq_residual ~ . -", target_variable_name)
+  
+  # Step 6: Addestra il modello per la varianza dell'errore (`variance_model`).
+  # Questo modello apprende a predire la varianza basandosi sui regressori.
+  variance_model <- train_svm_regression_model(as.formula(variance_formula_str), data = variance_train_data)
+  
+  # Step 7: Restituisce una lista contenente il modello per la media e quello per la varianza.
+  return(list(mean_model = mean_model, variance_model = variance_model))
+}
+
+save_detailed_test_predictions <- function(test_true_labels, prediction_sets_list, test_probs_matrix, output_directory, base_filename) {
   # Scopo: Crea e salva un file CSV con informazioni dettagliate per ogni campione di test.
   #
   # Parametri:
@@ -178,7 +274,6 @@ save_detailed_test_predictions <- function(test_true_labels,
   # Ritorna: Restituisce in modo invisibile il percorso completo al file salvato, o NULL se il salvataggio è fallito.
   
   # Step 1: Prepara per il salvataggio dei risultati dettagliati.
-  cat(paste0("INFO: Preparazione per il salvataggio delle predizioni di test dettagliate in '", base_filename, "'...\n"))
   
   # Step 2: Esegue un controllo di coerenza sugli argomenti di input.
   # Assicura che tutte le liste e matrici abbiano lunghezze/righe corrispondenti.
@@ -216,7 +311,6 @@ save_detailed_test_predictions <- function(test_true_labels,
   # Utilizza `tryCatch` per gestire gli errori durante il salvataggio.
   tryCatch({
     write.csv(detailed_results_df, detailed_filename_path, row.names = FALSE)
-    cat(paste0("INFO: Predizioni di test dettagliate salvate in '", detailed_filename_path, "'\n"))
     return(invisible(detailed_filename_path)) # Restituisce il percorso in modo invisibile
   }, error = function(e) {
     warning(paste0("WARN: Fallito il salvataggio delle predizioni di test dettagliate. Errore: ", e$message))

@@ -32,10 +32,6 @@
 #      4.5 Predizione per la Singola Esecuzione (Set Bayes)
 #      4.6 Salvataggio CSV Dettagliato delle Predizioni per la Singola Esecuzione
 #      4.7 Valutazione e Salvataggio di Tutte le Metriche per la Singola Esecuzione:
-#          4.7.1 Copertura Marginale a Singola Esecuzione
-#          4.7.2 Dimensioni Insiemi a Singola Esecuzione (Riepilogo, Grezzi, Istogramma)
-#          4.7.3 FSC a Singola Esecuzione (Tabella, Grafico)
-#          4.7.4 SSC a Singola Esecuzione (Tabella, Grafico)
 
 # Step 0: Sourcing degli script R condivisi.
 # Questo carica le funzioni di utilità e predizione necessarie per l'esperimento.
@@ -43,7 +39,6 @@ source("R/conformal_predictors.R")
 source("R/evaluation_utils.R")
 source("R/experimentation_utils.R")
 
-cat("INFO: --- Avvio Esperimento: Conformalizing Bayes (Sezione 2.4) con Esecuzioni Multiple per la Copertura ---\n")
 
 # --- 0. Setup: Caricamento Librerie ---
 # Step 1: Definisci tutti i pacchetti R richiesti per questo script.
@@ -63,10 +58,10 @@ TABLES_DIR <- file.path(RESULTS_DIR, "tables", METHOD_NAME_SUFFIX)
 # `recursive = TRUE` crea le sottodirectory necessarie.
 dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
 dir.create(TABLES_DIR, showWarnings = FALSE, recursive = TRUE)
-cat(paste0("INFO: I risultati per ", METHOD_NAME_SUFFIX, " verranno salvati in '", RESULTS_DIR, "/ (sottocartelle: ", METHOD_NAME_SUFFIX, ")'\n"))
+
 
 # --- 1. Impostazioni Esperimento ---
-cat("INFO: Definizione impostazioni esperimento per Conformalizing Bayes...\n")
+
 # Step 1: Definisci il seed base per la riproducibilità.
 # È un seed diverso per questo specifico esperimento.
 BASE_SEED <- 42
@@ -78,14 +73,12 @@ PROP_TRAIN <- 0.7
 PROP_CALIB <- 0.1
 # Step 5: Definisci il numero di esecuzioni per generare la distribuzione della copertura marginale.
 N_RUNS <- 100
-cat(paste0("INFO: Impostazioni: ALPHA_CONF=", ALPHA_CONF, ", N_RUNS_FOR_COVERAGE_HISTOGRAM=", N_RUNS, "\n"))
-cat(paste0("INFO: PROP_TRAIN=", PROP_TRAIN, ", PROP_CALIB=", PROP_CALIB, "\n"))
-cat(paste0("INFO: BASE_SEED per l'analisi dettagliata a singola esecuzione: ", BASE_SEED, "\n"))
+
 
 # --- 2. Esecuzioni Multiple per la Distribuzione della Copertura Marginale ---
 # Step 1: Inizializza un vettore numerico per memorizzare le coperture empiriche di ogni esecuzione.
 all_empirical_coverages_bayes <- numeric(N_RUNS)
-cat(paste0("INFO: Avvio ", N_RUNS, " esecuzioni per raccogliere dati di copertura marginale (Metodo Bayes)...\n"))
+
 
 # --- 2.1 Caricamento Completo del Dataset (una volta) ---
 # Step 1: Carica il dataset Iris completo, preparato per la classificazione.
@@ -106,10 +99,6 @@ for (run_iter in 1:N_RUNS) {
   current_run_seed <- BASE_SEED + run_iter
   set.seed(current_run_seed)
   
-  # Step 2: Stampa un messaggio di progresso per le esecuzioni.
-  if (run_iter == 1 || run_iter %% (N_RUNS / 10) == 0 || run_iter == N_RUNS) {
-    cat(paste0("INFO: --- Esecuzione ", run_iter, "/", N_RUNS, " (Seed: ", current_run_seed, ") (Bayes) ---\n"))
-  }
   
   # ------ Iterazione X: Divisione Dati ------
   # Step 1: Rimescola gli indici del dataset per creare una nuova divisione per l'esecuzione corrente.
@@ -124,7 +113,7 @@ for (run_iter in 1:N_RUNS) {
   # Step 1: Definisci la formula SVM (Species come variabile target, '.' per tutte le altre feature).
   svm_formula <- Species ~ .
   # Step 2: Addestra il modello SVM sui dati di addestramento dell'iterazione corrente.
-  svm_model_iter <- train_svm_model(svm_formula, train_df_iter)
+  svm_model_iter <- train_svm_classification_model(svm_formula, train_df_iter)
   
   # ------ Iterazione X: Calibrazione (Punteggi Bayes) ------
   # Step 1: Predici le probabilità di classe per il set di calibrazione.
@@ -150,25 +139,17 @@ for (run_iter in 1:N_RUNS) {
   # Step 2: Memorizza la copertura calcolata.
   all_empirical_coverages_bayes[run_iter] <- current_coverage
   
-  # Step 3: Stampa un messaggio di progresso con la copertura e il $q_{hat}$ dell'esecuzione corrente.
-  if (run_iter == 1 || run_iter %% (N_RUNS / 10) == 0 || run_iter == N_RUNS) {
-    cat(paste0("INFO: Copertura Esecuzione ", run_iter, " (Bayes): ", round(current_coverage, 3),
-               ", q_hat_iter: ", round(q_hat_iter, 4), "\n"
-    ))
-  }
+  
 }
-cat("INFO: Tutte le ", N_RUNS, " esecuzioni per la copertura marginale completate (Metodo Bayes).\n")
 
 # --- 3. Analisi e Salvataggio della Distribuzione della Copertura Marginale da N_RUNS ---
-cat("\nINFO: --- Analisi Distribuzione Copertura Marginale (Metodo Conformalizing Bayes) ---\n")
+
 # --- 3.1 Calcolo e Stampa delle Statistiche Riepilogative ---
 # Step 1: Calcola la media della copertura empirica su tutte le esecuzioni.
 mean_empirical_coverage_bayes <- mean(all_empirical_coverages_bayes, na.rm = TRUE)
 # Step 2: Calcola la deviazione standard della copertura empirica.
 sd_empirical_coverage_bayes <- sd(all_empirical_coverages_bayes, na.rm = TRUE)
-cat(paste0("RISULTATO: Copertura Marginale Empirica Media (Bayes) su ", N_RUNS, " esecuzioni: ", round(mean_empirical_coverage_bayes, 3), "\n"))
-cat(paste0("RISULTATO: Dev. Std. della Copertura Marginale Empirica (Bayes): ", round(sd_empirical_coverage_bayes, 3), "\n"))
-cat(paste0("RISULTATO: Copertura Target era >= ", 1 - ALPHA_CONF, "\n"))
+
 
 # --- 3.2 Salvataggio dei Valori Grezzi di Copertura su CSV ---
 # Step 1: Crea un data frame con i risultati della copertura per ogni esecuzione.
@@ -177,7 +158,7 @@ coverage_distribution_df_bayes <- data.frame(run_iteration = 1:N_RUNS, empirical
 coverage_dist_filename <- file.path(TABLES_DIR, "coverage_distribution_bayes.csv")
 # Step 3: Salva il data frame in un file CSV.
 write.csv(coverage_distribution_df_bayes, coverage_dist_filename, row.names = FALSE)
-cat(paste0("INFO: Distribuzione di ", N_RUNS, " coperture empiriche (Bayes) salvata in '", coverage_dist_filename, "'\n"))
+
 
 # --- 3.3 Tracciamento e Salvataggio dell'Istogramma delle Coperture ---
 # Step 1: Definisci il percorso del file PNG per l'istogramma.
@@ -192,14 +173,14 @@ plot_coverage_histogram(all_empirical_coverages_bayes,
 )
 # Step 4: Chiudi il dispositivo grafico, salvando l'immagine.
 dev.off()
-cat(paste0("INFO: Istogramma della copertura marginale (Bayes) salvato in '", coverage_hist_filename, "'\n"))
+
 
 # --- 4. Valutazione Dettagliata a Singola Esecuzione (utilizzando BASE_SEED per la riproducibilità) ---
-cat("\nINFO: --- Valutazione Dettagliata per una Singola Esecuzione Riproducibile (Conformalizing Bayes - utilizzando BASE_SEED) ---\n")
+
 # --- 4.1 Setup per Singola Esecuzione Dettagliata (Imposta BASE_SEED) ---
 # Step 1: Imposta il seed base per garantire la riproducibilità di questa singola esecuzione.
 set.seed(BASE_SEED)
-cat(paste0("INFO: Esecuzione singola divisione dati con BASE_SEED = ", BASE_SEED, " per analisi dettagliata (Bayes)...\n"))
+
 
 # --- 4.2 Divisione Dati per Singola Esecuzione ---
 # Step 1: Rimescola gli indici del dataset basandosi sul BASE_SEED.
@@ -209,14 +190,12 @@ single_run_data <- iris_data_full[single_run_shuffled_indices, ]
 single_run_train_df <- single_run_data[1:n_train_loop, ]
 single_run_calib_df <- single_run_data[(n_train_loop + 1):(n_train_loop + n_calib_loop), ]
 single_run_test_df <- single_run_data[(n_train_loop + n_calib_loop + 1):n_total, ]
-cat(paste0("INFO: Dimensioni dataset singola esecuzione (Bayes): Addestramento=", nrow(single_run_train_df),
-           ", Calibrazione=", nrow(single_run_calib_df), ", Test=", nrow(single_run_test_df), "\n"
-))
+
 
 # --- 4.3 Addestramento Modello per Singola Esecuzione ---
 # Step 1: Addestra il modello SVM sul set di addestramento della singola esecuzione.
 # La formula SVM è stata definita in precedenza.
-single_run_svm_model <- train_svm_model(svm_formula, single_run_train_df)
+single_run_svm_model <- train_svm_classification_model(svm_formula, single_run_train_df)
 
 # --- 4.4 Calibrazione per Singola Esecuzione (Punteggi Bayes) ---
 # Step 1: Predici le probabilità di classe per il set di calibrazione.
@@ -227,8 +206,7 @@ single_run_calib_true_labels <- single_run_calib_df$Species
 single_run_non_conf_scores <- get_non_conformity_scores_bayes(single_run_calib_probs, single_run_calib_true_labels)
 # Step 4: Calcola $q_{hat}$ per la singola esecuzione.
 single_run_q_hat_bayes <- calculate_q_hat(single_run_non_conf_scores, ALPHA_CONF, n_calib = nrow(single_run_calib_df))
-cat(paste0("INFO: Calibrazione singola esecuzione completata. q_hat (Bayes) = ", round(single_run_q_hat_bayes, 4), "\n"))
-cat(paste0("INFO: La soglia di predizione singola esecuzione sarà -q_hat = ", round(-single_run_q_hat_bayes, 4), "\n"))
+
 
 # --- 4.5 Predizione per Singola Esecuzione (Set Bayes) ---
 # Step 1: Predici le probabilità di classe per il set di test.
@@ -249,13 +227,11 @@ save_detailed_test_predictions(
 )
 
 # --- 4.7 Valutazione e Salvataggio di Tutte le Metriche per Singola Esecuzione ---
-cat("\nINFO: --- Risultati Valutazione per Singola Esecuzione BASE_SEED (Metodo Conformalizing Bayes) ---\n")
+
 # ---- 4.7.1 Copertura Marginale a Singola Esecuzione ----
 # Step 1: Calcola la copertura empirica per la singola esecuzione.
 single_run_empirical_cov <- calculate_empirical_coverage(single_run_prediction_sets, single_run_test_true_labels)
-cat(paste0("RISULTATO (Esecuzione BASE_SEED): Copertura Marginale Empirica (Bayes): ", round(single_run_empirical_cov, 3),
-           " (Target >= ", 1 - ALPHA_CONF, ")\n"
-))
+
 # Step 2: Crea un data frame riassuntivo della copertura.
 single_run_coverage_summary <- data.frame(
   method = "ConformalizingBayes_Section2.4_BASESEED_Run", alpha = ALPHA_CONF,
@@ -264,16 +240,15 @@ single_run_coverage_summary <- data.frame(
 )
 # Step 3: Salva il riassunto della copertura in un file CSV.
 write.csv(single_run_coverage_summary, file.path(TABLES_DIR, "coverage_summary_bayes_BASESEED_RUN.csv"), row.names = FALSE)
-cat(paste0("INFO: Riepilogo copertura marginale per Esecuzione BASE_SEED (Bayes) salvato in '", TABLES_DIR, "/coverage_summary_bayes_BASESEED_RUN.csv'\n"))
+
 
 # ---- 4.7.2 Dimensioni Insiemi a Singola Esecuzione (Riepilogo, Grezzi, Istogramma) ----
 # Step 1: Ottieni le dimensioni degli insiemi di predizione.
 single_run_set_sizes <- get_set_sizes(single_run_prediction_sets)
-cat("RISULTATO (Esecuzione BASE_SEED): Statistiche Dimensioni Insieme (Bayes):\n")
-print(summary(single_run_set_sizes))
+
 # Step 2: Calcola la dimensione media degli insiemi.
 single_run_avg_set_size <- mean(single_run_set_sizes, na.rm = TRUE)
-cat(paste0("RISULTATO (Esecuzione BASE_SEED): Dimensione media insieme (Bayes): ", round(single_run_avg_set_size, 3), "\n"))
+
 # Step 3: Crea un data frame riassuntivo delle dimensioni degli insiemi.
 single_run_set_size_summary_df <- data.frame(
   Min = min(single_run_set_sizes, na.rm = TRUE), Q1 = quantile(single_run_set_sizes, 0.25, na.rm = TRUE, names = FALSE),
@@ -283,7 +258,7 @@ single_run_set_size_summary_df <- data.frame(
 # Step 4: Salva il riassunto e i valori grezzi delle dimensioni degli insiemi in file CSV.
 write.csv(single_run_set_size_summary_df, file.path(TABLES_DIR, "set_size_summary_bayes_BASESEED_RUN.csv"), row.names = FALSE)
 write.csv(data.frame(set_size = single_run_set_sizes), file.path(TABLES_DIR, "set_sizes_raw_bayes_BASESEED_RUN.csv"), row.names = FALSE)
-cat(paste0("INFO: Riepilogo e dimensioni grezze degli insiemi per Esecuzione BASE_SEED (Bayes) salvati in '", TABLES_DIR, "/'\n"))
+
 
 # Step 5: Definisci il percorso del file PNG per l'istogramma delle dimensioni degli insiemi.
 single_run_plot_filename_set_size <- file.path(PLOTS_DIR, "histogram_set_sizes_bayes_BASESEED_RUN.png")
@@ -293,7 +268,7 @@ png(single_run_plot_filename_set_size, width = 800, height = 600)
 plot_set_size_histogram(single_run_set_sizes, main_title = "Dimensioni Insiemi (Conformalizing Bayes - Iris - Esecuzione BASE_SEED)")
 # Step 8: Chiudi il dispositivo grafico, salvando l'immagine.
 dev.off()
-cat(paste0("INFO: Istogramma dimensioni insiemi per Esecuzione BASE_SEED (Bayes) salvato in '", single_run_plot_filename_set_size, "'\n"))
+
 
 # ---- 4.7.3 FSC a Singola Esecuzione (Tabella, Grafico) ----
 # Step 1: Definisci il nome della feature per l'analisi FSC (Feature-conditional Coverage).
@@ -303,14 +278,11 @@ single_run_fsc_results <- calculate_fsc(single_run_prediction_sets, single_run_t
                                         single_run_test_df[[single_run_fsc_feature_name]], feature_name = single_run_fsc_feature_name,
                                         num_bins_for_continuous = 4
 )
-cat(paste0("RISULTATO (Esecuzione BASE_SEED): FSC (Bayes - per ", single_run_fsc_feature_name, "):\n"))
+
 if (!is.na(single_run_fsc_results$min_coverage)) {
-  # Step 3: Stampa la copertura minima FSC e la copertura per gruppo.
-  cat(paste0("  Copertura FSC minima: ", round(single_run_fsc_results$min_coverage, 3), "\n"))
-  print(single_run_fsc_results$coverage_by_group)
+  
   # Step 4: Salva la tabella dei risultati FSC in un file CSV.
   write.csv(single_run_fsc_results$coverage_by_group, file.path(TABLES_DIR, paste0("fsc_by_", single_run_fsc_feature_name, "_bayes_BASESEED_RUN.csv")), row.names = FALSE)
-  cat(paste0("INFO: Tabella risultati FSC per Esecuzione BASE_SEED (Bayes) salvata in '", TABLES_DIR, "/fsc_by_", single_run_fsc_feature_name, "_bayes_BASESEED_RUN.csv'\n"))
   
   # Step 5: Definisci il percorso del file PNG per il grafico FSC.
   single_run_plot_filename_fsc <- file.path(PLOTS_DIR, paste0("plot_fsc_", single_run_fsc_feature_name, "_bayes_BASESEED_RUN.png"))
@@ -321,12 +293,11 @@ if (!is.na(single_run_fsc_results$min_coverage)) {
                               1 - ALPHA_CONF, paste0("FSC (Bayes - ", single_run_fsc_feature_name, " - Iris - Esecuzione BASE_SEED)")
     )
     dev.off()
-    cat(paste0("INFO: Grafico FSC per Esecuzione BASE_SEED (Bayes) salvato in '", single_run_plot_filename_fsc, "'\n"))
   } else {
-    cat("INFO: ggplot2 non disponibile o nessun dato per il grafico FSC.\n")
+    
   }
 } else {
-  cat("  FSC (Esecuzione BASE_SEED - Bayes): NA o nessun gruppo.\n")
+  
 }
 
 # ---- 4.7.4 SSC a Singola Esecuzione (Tabella, Grafico) ----
@@ -334,14 +305,11 @@ if (!is.na(single_run_fsc_results$min_coverage)) {
 single_run_ssc_bins <- max(1, min(length(unique(single_run_set_sizes)), length(levels(iris_data_full$Species))))
 # Step 2: Calcola i risultati SSC.
 single_run_ssc_results <- calculate_ssc(single_run_prediction_sets, single_run_test_true_labels, num_bins_for_size = single_run_ssc_bins)
-cat("RISULTATO (Esecuzione BASE_SEED): SSC (Bayes):\n")
+
 if (!is.na(single_run_ssc_results$min_coverage)) {
-  # Step 3: Stampa la copertura minima SSC e la copertura per gruppo.
-  cat(paste0("  Copertura SSC minima: ", round(single_run_ssc_results$min_coverage, 3), "\n"))
-  print(single_run_ssc_results$coverage_by_group)
+  
   # Step 4: Salva la tabella dei risultati SSC in un file CSV.
   write.csv(single_run_ssc_results$coverage_by_group, file.path(TABLES_DIR, "ssc_bayes_BASESEED_RUN.csv"), row.names = FALSE)
-  cat(paste0("INFO: Tabella risultati SSC per Esecuzione BASE_SEED (Bayes) salvata in '", TABLES_DIR, "/ssc_bayes_BASESEED_RUN.csv'\n"))
   
   # Step 5: Definisci il percorso del file PNG per il grafico SSC.
   single_run_plot_filename_ssc <- file.path(PLOTS_DIR, "plot_ssc_bayes_BASESEED_RUN.png")
@@ -352,12 +320,9 @@ if (!is.na(single_run_ssc_results$min_coverage)) {
                               1 - ALPHA_CONF, "SSC (Conformalizing Bayes - Iris - Esecuzione BASE_SEED)"
     )
     dev.off()
-    cat(paste0("INFO: Grafico SSC per Esecuzione BASE_SEED (Bayes) salvato in '", single_run_plot_filename_ssc, "'\n"))
   } else {
-    cat("INFO: ggplot2 non disponibile o nessun dato per il grafico SSC.\n")
+    
   }
 } else {
-  cat("  SSC (Esecuzione BASE_SEED - Bayes): NA o nessun gruppo.\n")
+  
 }
-
-cat("INFO: --- Fine Esperimento Conformalizing Bayes ---\n")

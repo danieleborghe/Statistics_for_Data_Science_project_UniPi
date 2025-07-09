@@ -30,10 +30,6 @@
 #      4.5 Predizione per la Singola Esecuzione
 #      4.6 Salvataggio CSV Dettagliato degli Intervalli di Test
 #      4.7 Valutazione e Salvataggio di Tutte le Metriche per la Singola Esecuzione:
-#          4.7.1 Riepilogo Copertura e Larghezza Marginale a Singola Esecuzione
-#          4.7.2 Larghezze degli Intervalli a Singola Esecuzione (Riepilogo, Grezze, Istogramma)
-#          4.7.3 FSC a Singola Esecuzione (Tabella, Grafico)
-#          4.7.4 SSC a Singola Esecuzione (Tabella, Grafico)
 
 # --- 0. Setup: Sourcing e Librerie ---
 # Step 1: Carica le funzioni di utilità e predizione necessarie per l'esperimento.
@@ -41,7 +37,6 @@ source("R/conformal_predictors.R")
 source("R/evaluation_utils.R")
 source("R/experimentation_utils.R")
 
-cat("INFO: --- Avvio Esperimento: Conformalizing Scalar Uncertainty (Sezione 2.3) ---\n")
 
 # --- 0. Setup: Caricamento Librerie ---
 # Step 1: Definisci tutti i pacchetti R richiesti per questo script.
@@ -61,10 +56,10 @@ TABLES_DIR <- file.path(RESULTS_DIR, "tables", METHOD_NAME_SUFFIX)
 # `recursive = TRUE` crea le sottodirectory necessarie.
 dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
 dir.create(TABLES_DIR, showWarnings = FALSE, recursive = TRUE)
-cat(paste0("INFO: I risultati verranno salvati in '", RESULTS_DIR, "/ (sottocartelle: ", METHOD_NAME_SUFFIX, ")'\n"))
+
 
 # --- 1. Impostazioni Esperimento ---
-cat("INFO: Definizione impostazioni esperimento...\n")
+
 # Step 1: Definisci il seed base per la riproducibilità.
 BASE_SEED <- 42
 # Step 2: Definisci il livello di significatività (alpha) per la predizione conforme.
@@ -79,14 +74,13 @@ N_RUNS <- 100
 TARGET_VARIABLE <- "Petal.Length"
 # Step 7: Definisci la formula di regressione.
 REG_FORMULA <- as.formula(paste(TARGET_VARIABLE, "~ ."))
-cat(paste0("INFO: Impostazioni: ALPHA_CONF=", ALPHA_CONF, ", N_RUNS=", N_RUNS, "\n"))
-cat(paste0("INFO: BASE_SEED per l'analisi dettagliata a singola esecuzione: ", BASE_SEED, "\n"))
+
 
 # --- 2. Esecuzioni Multiple per la Distribuzione della Copertura e della Larghezza ---
 # Step 1: Inizializza vettori numerici per memorizzare le coperture empiriche e le larghezze medie di ogni esecuzione.
 all_empirical_coverages_su <- numeric(N_RUNS)
 all_avg_widths_su <- numeric(N_RUNS)
-cat(paste0("INFO: Avvio ", N_RUNS, " esecuzioni per raccogliere dati di copertura e larghezza...\n"))
+
 
 # --- 2.1 Caricamento Completo del Dataset (una volta) ---
 # Step 1: Carica il dataset Iris completo, preparato per la regressione.
@@ -106,10 +100,6 @@ for (run_iter in 1:N_RUNS) {
   current_run_seed <- BASE_SEED + run_iter
   set.seed(current_run_seed)
   
-  # Step 2: Stampa un messaggio di progresso per le esecuzioni.
-  if (run_iter == 1 || run_iter %% (N_RUNS / 10) == 0 || run_iter == N_RUNS) {
-    cat(paste0("INFO: --- Esecuzione ", run_iter, "/", N_RUNS, " (Seed: ", current_run_seed, ") ---\n"))
-  }
   
   # ------ Iterazione X: Divisione Dati ------
   # Step 1: Rimescola gli indici del dataset per creare una nuova divisione per l'esecuzione corrente.
@@ -141,18 +131,16 @@ for (run_iter in 1:N_RUNS) {
   # Step 3: Calcola la larghezza media degli intervalli per l'iterazione corrente.
   all_avg_widths_su[run_iter] <- mean(prediction_intervals_iter$upper_bound - prediction_intervals_iter$lower_bound, na.rm = TRUE)
 }
-cat("INFO: Tutte le ", N_RUNS, " esecuzioni completate.\n")
 
 # --- 3. Analisi e Salvataggio della Distribuzione della Copertura e della Larghezza da N_RUNS ---
-cat("\nINFO: --- Analisi Distribuzione Copertura e Larghezza Marginale ---\n")
+
 # --- 3.1 Calcolo e Stampa delle Statistiche Riepilogative ---
 # Step 1: Calcola la media e la deviazione standard della copertura empirica.
 mean_coverage <- mean(all_empirical_coverages_su, na.rm = TRUE)
 sd_coverage <- sd(all_empirical_coverages_su, na.rm = TRUE)
 # Step 2: Calcola la larghezza media degli intervalli.
 mean_width <- mean(all_avg_widths_su, na.rm = TRUE)
-cat(paste0("RISULTATO: Copertura Empirica Media su ", N_RUNS, " esecuzioni: ", round(mean_coverage, 3), " (DS: ", round(sd_coverage, 3), ")\n"))
-cat(paste0("RISULTATO: Larghezza Media dell'Intervallo su ", N_RUNS, " esecuzioni: ", round(mean_width, 3), "\n"))
+
 
 # --- 3.2 Salvataggio dei Valori Grezzi della Distribuzione ---
 # Step 1: Crea un data frame contenente i risultati di copertura e larghezza per ogni esecuzione.
@@ -169,14 +157,14 @@ png(file.path(PLOTS_DIR, "histogram_marginal_coverage.png"), width = 800, height
 plot_coverage_histogram(all_empirical_coverages_su, ALPHA_CONF, N_RUNS, "Metodo di Incertezza Scalare")
 # Step 3: Chiudi il dispositivo grafico, salvando l'immagine.
 dev.off()
-cat("INFO: Dati di distribuzione e istogramma salvati.\n")
+
 
 # --- 4. Valutazione Dettagliata a Singola Esecuzione (utilizzando BASE_SEED) ---
-cat("\nINFO: --- Valutazione Dettagliata per una Singola Esecuzione Riproducibile ---\n")
+
 # --- 4.1 Setup per Singola Esecuzione Dettagliata ---
 # Step 1: Imposta il seed base per garantire la riproducibilità di questa singola esecuzione.
 set.seed(BASE_SEED)
-cat(paste0("INFO: Esecuzione singola divisione dati con BASE_SEED = ", BASE_SEED, " per analisi dettagliata...\n"))
+
 
 # --- 4.2 Divisione Dati per Singola Esecuzione ---
 # Step 1: Rimescola gli indici del dataset basandosi sul BASE_SEED.
@@ -185,9 +173,7 @@ shuffled_indices_single <- sample(n_total)
 train_df <- iris_data_full[shuffled_indices_single[1:n_train_loop], ]
 calib_df <- iris_data_full[shuffled_indices_single[(n_train_loop + 1):(n_train_loop + n_calib_loop)], ]
 test_df <- iris_data_full[shuffled_indices_single[(n_train_loop + n_calib_loop + 1):n_total], ]
-cat(paste0("INFO: Dimensioni dataset singola esecuzione: Addestramento=", nrow(train_df),
-           ", Calibrazione=", nrow(calib_df), ", Test=", nrow(test_df), "\n"
-))
+
 
 # --- 4.3 Addestramento Modello per Singola Esecuzione ---
 # Step 1: Addestra il modello primario e il modello di incertezza sui dati di addestramento della singola esecuzione.
@@ -198,7 +184,7 @@ models <- train_primary_and_uncertainty_models(REG_FORMULA, train_df, TARGET_VAR
 non_conf_scores <- get_non_conformity_scores_scalar(models, calib_df, TARGET_VARIABLE)
 # Step 2: Calcola $q_{hat}$ per la singola esecuzione.
 q_hat <- calculate_q_hat(non_conf_scores, ALPHA_CONF, n_calib = nrow(calib_df))
-cat(paste0("INFO: Calibrazione singola esecuzione completata. q_hat = ", round(q_hat, 4), "\n"))
+
 
 # --- BLOCCO PER ANALISI ADATTIVITÀ (Residui) ---
 # Scopo: Salvare punteggi e residui per l'analisi di adattività.
@@ -216,13 +202,13 @@ adaptiveness_data <- data.frame(
 # Step 3: Salva il data frame in un file CSV.
 adaptiveness_filename <- file.path(TABLES_DIR, "adaptiveness_data_BASESEED_RUN.csv")
 write.csv(adaptiveness_data, adaptiveness_filename, row.names = FALSE)
-cat(paste0("INFO: Dati per analisi di adattività salvati in '", adaptiveness_filename, "'\n"))
+
 # --- FINE BLOCCO ---
 
 # Step 3: Salva il data frame in un file CSV.
 adaptiveness_filename <- file.path(TABLES_DIR, "adaptiveness_data_BASESEED_RUN.csv")
 write.csv(adaptiveness_data, adaptiveness_filename, row.names = FALSE)
-cat(paste0("INFO: Dati per analisi di adattività salvati in '", adaptiveness_filename, "'\n"))
+
 
 # --- 4.5 Predizione per Singola Esecuzione ---
 # Step 1: Crea gli intervalli di predizione per il set di test della singola esecuzione.
@@ -242,17 +228,16 @@ intervals_df$IntervalWidth <- intervals_df$UpperBound - intervals_df$LowerBound
 intervals_df$Covered <- (intervals_df$TrueValue >= intervals_df$LowerBound) & (intervals_df$TrueValue <= intervals_df$UpperBound)
 # Step 4: Salva il data frame dettagliato in un file CSV.
 write.csv(intervals_df, file.path(TABLES_DIR, "detailed_test_intervals_BASESEED_RUN.csv"), row.names = FALSE)
-cat(paste0("INFO: Intervalli di test dettagliati salvati in '", file.path(TABLES_DIR, "detailed_test_intervals_BASESEED_RUN.csv"), "'\n"))
+
 
 # --- 4.7 Valutazione e Salvataggio di Tutte le Metriche per Singola Esecuzione ---
-cat("\nINFO: --- Risultati Valutazione per Singola Esecuzione BASE_SEED ---\n")
+
 # ---- 4.7.1 Riepilogo Copertura e Larghezza Marginale a Singola Esecuzione ----
 # Step 1: Calcola la copertura empirica media per la singola esecuzione.
 single_run_coverage <- mean(intervals_df$Covered, na.rm = TRUE)
 # Step 2: Calcola la larghezza media degli intervalli per la singola esecuzione.
 single_run_avg_width <- mean(intervals_df$IntervalWidth, na.rm = TRUE)
-cat(paste0("RISULTATO (Esecuzione BASE_SEED): Copertura Empirica: ", round(single_run_coverage, 3), "\n"))
-cat(paste0("RISULTATO (Esecuzione BASE_SEED): Larghezza Media Intervallo: ", round(single_run_avg_width, 3), "\n"))
+
 
 # Step 3: Crea un data frame riassuntivo delle metriche chiave.
 summary_df <- data.frame(
@@ -262,11 +247,9 @@ summary_df <- data.frame(
 # Step 4: Salva il riepilogo in un file CSV.
 summary_filename <- file.path(TABLES_DIR, "summary_BASESEED_RUN.csv")
 write.csv(summary_df, summary_filename, row.names = FALSE)
-cat(paste0("INFO: Riepilogo singola esecuzione salvato in '", summary_filename, "'\n"))
+
 
 # ---- 4.7.2 Larghezze degli Intervalli a Singola Esecuzione (Riepilogo, Grezze, Istogramma) ----
-cat("RISULTATO (Esecuzione BASE_SEED): Statistiche Larghezza Intervallo:\n")
-print(summary(intervals_df$IntervalWidth))
 
 # Step 1: Crea un data frame riassuntivo delle statistiche di larghezza.
 width_summary_df <- data.frame(
@@ -283,7 +266,7 @@ write.csv(width_summary_df, width_summary_filename, row.names = FALSE)
 # Step 3: Salva i valori grezzi delle larghezze in un file CSV.
 width_raw_filename <- file.path(TABLES_DIR, "widths_raw_BASESEED_RUN.csv")
 write.csv(data.frame(IntervalWidth = intervals_df$IntervalWidth), width_raw_filename, row.names = FALSE)
-cat(paste0("INFO: Riepilogo e larghezze grezze salvate in '", TABLES_DIR, "/'\n"))
+
 
 # Step 4: Definisci il percorso del file PNG per l'istogramma delle larghezze.
 width_hist_filename <- file.path(PLOTS_DIR, "histogram_widths_BASESEED_RUN.png")
@@ -298,13 +281,13 @@ hist(intervals_df$IntervalWidth,
 )
 # Step 7: Chiudi il dispositivo grafico, salvando l'immagine.
 dev.off()
-cat(paste0("INFO: Istogramma larghezza intervallo salvato in '", width_hist_filename, "'\n"))
+
 
 # ---- 4.7.3 FSC a Singola Esecuzione (Feature-Stratified Coverage) ----
-cat("\nINFO: --- Valutazione FSC per Singola Esecuzione BASE_SEED ---\n")
+
 # Step 1: Definisci il nome della feature per l'analisi FSC.
 fsc_feature_name <- "Sepal.Length"
-cat(paste0("INFO: Calcolo FSC stratificato per '", fsc_feature_name, "'...\n"))
+
 
 # Step 2: Crea gruppi basati sulla feature per la stratificazione.
 feature_groups <- cut(test_df[[fsc_feature_name]], breaks = 4, include.lowest = TRUE, ordered_result = TRUE)
@@ -317,13 +300,11 @@ fsc_results_df <- fsc_df %>%
   dplyr::summarise(coverage = mean(covered, na.rm = TRUE), count = n(), .groups = 'drop') %>%
   dplyr::filter(count > 0)
 
-cat("RISULTATO (Esecuzione BASE_SEED): Risultati FSC:\n")
-print(fsc_results_df)
 
 # Step 5: Salva la tabella dei risultati FSC in un file CSV.
 fsc_table_filename <- file.path(TABLES_DIR, paste0("fsc_by_", fsc_feature_name, "_BASESEED_RUN.csv"))
 write.csv(fsc_results_df, fsc_table_filename, row.names = FALSE)
-cat(paste0("INFO: Tabella risultati FSC salvata in '", fsc_table_filename, "'\n"))
+
 
 # Step 6: Definisci il percorso del file PNG per il grafico FSC.
 fsc_plot_filename <- file.path(PLOTS_DIR, paste0("plot_fsc_", fsc_feature_name, "_BASESEED_RUN.png"))
@@ -339,11 +320,9 @@ p_fsc <- plot_conditional_coverage(fsc_results_df,
 print(p_fsc)
 # Step 9: Chiudi il dispositivo grafico, salvando l'immagine.
 dev.off()
-cat(paste0("INFO: Grafico FSC salvato in '", fsc_plot_filename, "'\n"))
+
 
 # ---- 4.7.4 SSC a Singola Esecuzione (Set-Stratified Coverage) ----
-cat("\nINFO: --- Valutazione SSC per Singola Esecuzione BASE_SEED ---\n")
-cat("INFO: Calcolo SSC stratificato per larghezza dell'intervallo...\n")
 
 # Step 1: Crea gruppi basati sulla larghezza dell'intervallo per la stratificazione.
 width_groups <- cut(intervals_df$IntervalWidth,
@@ -362,13 +341,11 @@ ssc_results_df <- ssc_df %>%
   dplyr::summarise(coverage = mean(covered, na.rm = TRUE), count = n(), .groups = 'drop') %>%
   dplyr::filter(count > 0)
 
-cat("RISULTATO (Esecuzione BASE_SEED): Risultati SSC:\n")
-print(ssc_results_df)
 
 # Step 4: Salva la tabella dei risultati SSC in un file CSV.
 ssc_table_filename <- file.path(TABLES_DIR, "ssc_BASESEED_RUN.csv")
 write.csv(ssc_results_df, ssc_table_filename, row.names = FALSE)
-cat(paste0("INFO: Tabella risultati SSC salvata in '", ssc_table_filename, "'\n"))
+
 
 # Step 5: Definisci il percorso del file PNG per il grafico SSC.
 ssc_plot_filename <- file.path(PLOTS_DIR, "plot_ssc_BASESEED_RUN.png")
@@ -384,6 +361,3 @@ p_ssc <- plot_conditional_coverage(ssc_results_df,
 print(p_ssc)
 # Step 8: Chiudi il dispositivo grafico, salvando l'immagine.
 dev.off()
-cat(paste0("INFO: Grafico SSC salvato in '", ssc_plot_filename, "'\n"))
-
-cat("\nINFO: --- Fine Esperimento di Incertezza Scalare ---\n")
