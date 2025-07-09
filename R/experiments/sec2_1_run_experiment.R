@@ -173,14 +173,12 @@ plot_coverage_histogram(all_empirical_coverages_adaptive,
 # Step 4: Chiudi il dispositivo grafico, salvando l'immagine.
 dev.off()
 
-
 # --- 4. Valutazione Dettagliata a Singola Esecuzione (utilizzando BASE_SEED per la riproducibilità) ---
 
 # --- 4.1 Setup per Singola Esecuzione Dettagliata (Imposta BASE_SEED) ---
 
 # Step 1: Imposta il seed base per garantire la riproducibilità di questa singola esecuzione.
 set.seed(BASE_SEED)
-
 
 # --- 4.2 Divisione Dati per Singola Esecuzione ---
 
@@ -191,7 +189,6 @@ single_run_data <- iris_data_full[single_run_shuffled_indices, ]
 single_run_train_df <- single_run_data[1:n_train_loop, ]
 single_run_calib_df <- single_run_data[(n_train_loop + 1):(n_train_loop + n_calib_loop), ]
 single_run_test_df <- single_run_data[(n_train_loop + n_calib_loop + 1):n_total, ]
-
 
 # --- 4.3 Addestramento Modello per Singola Esecuzione ---
 
@@ -265,17 +262,6 @@ single_run_set_size_summary_df <- data.frame(
 write.csv(single_run_set_size_summary_df, file.path(TABLES_DIR, "set_size_summary_adaptive_BASESEED_RUN.csv"), row.names = FALSE)
 write.csv(data.frame(set_size = single_run_set_sizes), file.path(TABLES_DIR, "set_sizes_raw_adaptive_BASESEED_RUN.csv"), row.names = FALSE)
 
-
-# Step 5: Definisci il percorso del file PNG per l'istogramma delle dimensioni degli insiemi.
-single_run_plot_filename_set_size <- file.path(PLOTS_DIR, "histogram_set_sizes_adaptive_BASESEED_RUN.png")
-# Step 6: Avvia il dispositivo grafico PNG.
-png(single_run_plot_filename_set_size, width = 800, height = 600)
-# Step 7: Traccia l'istogramma delle dimensioni degli insiemi.
-plot_set_size_histogram(single_run_set_sizes, main_title = "Dimensioni Insiemi (Conforme Adattivo - Iris - Esecuzione BASE_SEED)")
-# Step 8: Chiudi il dispositivo grafico, salvando l'immagine.
-dev.off()
-
-
 # ---- 4.7.3 FSC a Singola Esecuzione (Tabella, Grafico) ----
 
 # Step 1: Definisci il nome della feature per l'analisi FSC (Feature-conditional Coverage).
@@ -285,52 +271,14 @@ single_run_fsc_results <- calculate_fsc(single_run_prediction_sets, single_run_t
                                         single_run_test_df[[single_run_fsc_feature_name]], feature_name = single_run_fsc_feature_name,
                                         num_bins_for_continuous = 4
 )
+# Step 3: Salva la tabella dei risultati FSC in un file CSV.
+write.csv(single_run_fsc_results$coverage_by_group, file.path(TABLES_DIR, paste0("fsc_by_", single_run_fsc_feature_name, "_adaptive_BASESEED_RUN.csv")), row.names = FALSE)
 
-if (!is.na(single_run_fsc_results$min_coverage)) {
-  
-  # Step 4: Salva la tabella dei risultati FSC in un file CSV.
-  write.csv(single_run_fsc_results$coverage_by_group, file.path(TABLES_DIR, paste0("fsc_by_", single_run_fsc_feature_name, "_adaptive_BASESEED_RUN.csv")), row.names = FALSE)
-  
-  # Step 5: Definisci il percorso del file PNG per il grafico FSC.
-  single_run_plot_filename_fsc <- file.path(PLOTS_DIR, paste0("plot_fsc_", single_run_fsc_feature_name, "_adaptive_BASESEED_RUN.png"))
-  # Step 6: Se ggplot2 è disponibile e ci sono dati, traccia e salva il grafico FSC.
-  if (requireNamespace("ggplot2", quietly = TRUE) && nrow(single_run_fsc_results$coverage_by_group) > 0) {
-    png(single_run_plot_filename_fsc, width = 800, height = 600)
-    plot_conditional_coverage(single_run_fsc_results$coverage_by_group, "feature_group", "coverage",
-                              1 - ALPHA_CONF, paste0("FSC (Adattivo - ", single_run_fsc_feature_name, " - Iris - Esecuzione BASE_SEED)")
-    )
-    dev.off()
-  } else {
-    
-  }
-} else {
-  
-}
-
-# ---- 4.7.4 SSC a Singola Esecuzione (Tabella, Grafico) ----
+# ---- 4.7.4 SSC a Singola Esecuzione ----
 
 # Step 1: Calcola il numero di bin per l'analisi SSC (Set-size conditional Coverage).
 single_run_ssc_bins <- max(1, min(length(unique(single_run_set_sizes)), length(levels(iris_data_full$Species))))
 # Step 2: Calcola i risultati SSC.
 single_run_ssc_results <- calculate_ssc(single_run_prediction_sets, single_run_test_true_labels, num_bins_for_size = single_run_ssc_bins)
-
-if (!is.na(single_run_ssc_results$min_coverage)) {
-  
-  # Step 4: Salva la tabella dei risultati SSC in un file CSV.
-  write.csv(single_run_ssc_results$coverage_by_group, file.path(TABLES_DIR, "ssc_adaptive_BASESEED_RUN.csv"), row.names = FALSE)
-  
-  # Step 5: Definisci il percorso del file PNG per il grafico SSC.
-  single_run_plot_filename_ssc <- file.path(PLOTS_DIR, "plot_ssc_adaptive_BASESEED_RUN.png")
-  # Step 6: Se ggplot2 è disponibile e ci sono dati, traccia e salva il grafico SSC.
-  if (requireNamespace("ggplot2", quietly = TRUE) && nrow(single_run_ssc_results$coverage_by_group) > 0) {
-    png(single_run_plot_filename_ssc, width = 800, height = 600)
-    plot_conditional_coverage(single_run_ssc_results$coverage_by_group, "size_group", "coverage",
-                              1 - ALPHA_CONF, "SSC (Adattivo - Iris - Esecuzione BASE_SEED)"
-    )
-    dev.off()
-  } else {
-    
-  }
-} else {
-  
-}
+# Step 3: Salva la tabella dei risultati SSC in un file CSV.
+write.csv(single_run_ssc_results$coverage_by_group, file.path(TABLES_DIR, "ssc_adaptive_BASESEED_RUN.csv"), row.names = FALSE)

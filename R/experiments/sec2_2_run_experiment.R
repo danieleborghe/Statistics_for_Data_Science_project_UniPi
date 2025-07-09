@@ -1,10 +1,9 @@
-# R/sec2_3_scalar_run_experiment.R
+# R/sec2_2_run_experiment.R
 #
 # Scopo:
-# Questo script esegue l'esperimento di Conformalizing Scalar Uncertainty Estimates (Stime di Incertezza Scalare Conforme)
-# (Sezione 2.3 dell'articolo). Implementa il metodo in cui l'incertezza è modellata predendo la magnitudo dei
-# residui assoluti di un modello di predizione primario. Lo script segue la struttura standard del progetto:
-# esecuzioni multiple per la distribuzione della copertura e una singola valutazione dettagliata.
+# Questo script esegue l'esperimento di Regressione Quantile Conforme (Sezione 2.2 dell'articolo).
+# Utilizza il dataset Iris per un task di regressione (predizione di Petal.Length). Lo script
+# include esecuzioni multiple per la distribuzione della copertura e una singola valutazione dettagliata.
 #
 # Struttura:
 #   0. Setup: Creazione Directory Risultati, Caricamento Librerie
@@ -14,7 +13,7 @@
 #      2.2 Definizione Parametri di Divisione Dati Specifici per il Ciclo
 #      2.3 Avvio Ciclo N_RUNS
 #          - Iterazione X: Divisione Dati
-#          - Iterazione X: Addestramento Modello (Primario + Incertezza)
+#          - Iterazione X: Addestramento Modello
 #          - Iterazione X: Calibrazione
 #          - Iterazione X: Predizione
 #          - Iterazione X: Memorizzazione Metriche (Copertura e Larghezza)
@@ -47,7 +46,7 @@ check_and_load_packages(all_required_packages)
 # --- 0. Setup: Creazione Directory Risultati ---
 # Step 1: Definisci i nomi delle directory per salvare i risultati.
 RESULTS_DIR <- "results"
-METHOD_NAME_SUFFIX <- "section2_3_scalar_uncert"
+METHOD_NAME_SUFFIX <- "section2_2_quantile_reg"
 PLOTS_DIR <- file.path(RESULTS_DIR, "plots", METHOD_NAME_SUFFIX)
 TABLES_DIR <- file.path(RESULTS_DIR, "tables", METHOD_NAME_SUFFIX)
 
@@ -78,8 +77,8 @@ REG_FORMULA <- as.formula(paste(TARGET_VARIABLE, "~ ."))
 
 # --- 2. Esecuzioni Multiple per la Distribuzione della Copertura e della Larghezza ---
 # Step 1: Inizializza vettori numerici per memorizzare le coperture empiriche e le larghezze medie di ogni esecuzione.
-all_empirical_coverages_su <- numeric(N_RUNS)
-all_avg_widths_su <- numeric(N_RUNS)
+all_empirical_coverages_qr <- numeric(N_RUNS)
+all_avg_widths_qr <- numeric(N_RUNS)
 
 
 # --- 2.1 Caricamento Completo del Dataset (una volta) ---
@@ -109,44 +108,45 @@ for (run_iter in 1:N_RUNS) {
   calib_df_iter <- iris_data_full[shuffled_indices[(n_train_loop + 1):(n_train_loop + n_calib_loop)], ]
   test_df_iter <- iris_data_full[shuffled_indices[(n_train_loop + n_calib_loop + 1):n_total], ]
   
-  # ------ Iterazione X: Addestramento Modello (Primario + Incertezza) ------
-  # Step 1: Addestra il modello di predizione primario e il modello di incertezza sui dati di addestramento.
-  models_iter <- train_primary_and_uncertainty_models(REG_FORMULA, train_df_iter, TARGET_VARIABLE)
+  # ------ Iterazione X: Addestramento Modello ------
+  # Step 1: Addestra i modelli di regressione quantile (limite inferiore e superiore) sui dati di addestramento.
+  quantile_models_iter <- train_quantile_models(REG_FORMULA, train_df_iter, alpha = ALPHA_CONF)
   
   # ------ Iterazione X: Calibrazione ------
-  # Step 1: Calcola i punteggi di non-conformità scalari sui dati di calibrazione.
-  non_conf_scores_iter <- get_non_conformity_scores_scalar(models_iter, calib_df_iter, TARGET_VARIABLE)
+  # Step 1: Calcola i punteggi di non-conformità per la regressione quantile sui dati di calibrazione.
+  non_conf_scores_iter <- get_non_conformity_scores_quantile(quantile_models_iter, calib_df_iter, TARGET_VARIABLE)
   # Step 2: Calcola il valore $q_{hat}$ basato sui punteggi di non-conformità.
   q_hat_iter <- calculate_q_hat(non_conf_scores_iter, ALPHA_CONF, n_calib = nrow(calib_df_iter))
   
   # ------ Iterazione X: Predizione ------
   # Step 1: Crea gli intervalli di predizione per il set di test utilizzando i modelli e il $q_{hat}$.
-  prediction_intervals_iter <- create_prediction_intervals_scalar(models_iter, test_df_iter, q_hat_iter)
+  prediction_intervals_iter <- create_prediction_intervals_quantile(quantile_models_iter, test_df_iter, q_hat_iter)
   
   # ------ Iterazione X: Memorizzazione Metriche ------
   # Step 1: Estrai i veri valori della variabile target dal set di test.
   test_true_values_iter <- test_df_iter[[TARGET_VARIABLE]]
   # Step 2: Calcola la copertura empirica per l'iterazione corrente.
-  all_empirical_coverages_su[run_iter] <- mean((test_true_values_iter >= prediction_intervals_iter$lower_bound) & (test_true_values_iter <= prediction_intervals_iter$upper_bound))
+  all_empirical_coverages_qr[run_iter] <- mean((test_true_values_iter >= prediction_intervals_iter$lower_bound) & (test_true_values_iter <= prediction_intervals_iter$upper_bound))
   # Step 3: Calcola la larghezza media degli intervalli per l'iterazione corrente.
-  all_avg_widths_su[run_iter] <- mean(prediction_intervals_iter$upper_bound - prediction_intervals_iter$lower_bound, na.rm = TRUE)
+  all_avg_widths_qr[run_iter] <- mean(prediction_intervals_iter$upper_bound - prediction_intervals_iter$lower_bound, na.rm = TRUE)
 }
+
 
 # --- 3. Analisi e Salvataggio della Distribuzione della Copertura e della Larghezza da N_RUNS ---
 
 # --- 3.1 Calcolo e Stampa delle Statistiche Riepilogative ---
 # Step 1: Calcola la media e la deviazione standard della copertura empirica.
-mean_coverage <- mean(all_empirical_coverages_su, na.rm = TRUE)
-sd_coverage <- sd(all_empirical_coverages_su, na.rm = TRUE)
+mean_coverage <- mean(all_empirical_coverages_qr, na.rm = TRUE)
+sd_coverage <- sd(all_empirical_coverages_qr, na.rm = TRUE)
 # Step 2: Calcola la larghezza media degli intervalli.
-mean_width <- mean(all_avg_widths_su, na.rm = TRUE)
+mean_width <- mean(all_avg_widths_qr, na.rm = TRUE)
 
 
 # --- 3.2 Salvataggio dei Valori Grezzi della Distribuzione ---
 # Step 1: Crea un data frame contenente i risultati di copertura e larghezza per ogni esecuzione.
 # Step 2: Salva il data frame in un file CSV.
 write.csv(
-  data.frame(run = 1:N_RUNS, coverage = all_empirical_coverages_su, avg_width = all_avg_widths_su),
+  data.frame(run = 1:N_RUNS, coverage = all_empirical_coverages_qr, avg_width = all_avg_widths_qr),
   file.path(TABLES_DIR, "coverage_width_distribution.csv"), row.names = FALSE
 )
 
@@ -154,7 +154,7 @@ write.csv(
 # Step 1: Definisci il percorso del file PNG per l'istogramma.
 png(file.path(PLOTS_DIR, "histogram_marginal_coverage.png"), width = 800, height = 600)
 # Step 2: Traccia l'istogramma delle coperture.
-plot_coverage_histogram(all_empirical_coverages_su, ALPHA_CONF, N_RUNS, "Metodo di Incertezza Scalare")
+plot_coverage_histogram(all_empirical_coverages_qr, ALPHA_CONF, N_RUNS, "Regressione Quantile Conforme")
 # Step 3: Chiudi il dispositivo grafico, salvando l'immagine.
 dev.off()
 
@@ -176,43 +176,41 @@ test_df <- iris_data_full[shuffled_indices_single[(n_train_loop + n_calib_loop +
 
 
 # --- 4.3 Addestramento Modello per Singola Esecuzione ---
-# Step 1: Addestra il modello primario e il modello di incertezza sui dati di addestramento della singola esecuzione.
-models <- train_primary_and_uncertainty_models(REG_FORMULA, train_df, TARGET_VARIABLE)
+# Step 1: Addestra i modelli di regressione quantile sui dati di addestramento della singola esecuzione.
+quantile_models <- train_quantile_models(REG_FORMULA, train_df, alpha = ALPHA_CONF)
 
 # --- 4.4 Calibrazione per Singola Esecuzione ---
-# Step 1: Calcola i punteggi di non-conformità scalari sui dati di calibrazione.
-non_conf_scores <- get_non_conformity_scores_scalar(models, calib_df, TARGET_VARIABLE)
+# Step 1: Calcola i punteggi di non-conformità sui dati di calibrazione.
+non_conf_scores <- get_non_conformity_scores_quantile(quantile_models, calib_df, TARGET_VARIABLE)
 # Step 2: Calcola $q_{hat}$ per la singola esecuzione.
 q_hat <- calculate_q_hat(non_conf_scores, ALPHA_CONF, n_calib = nrow(calib_df))
 
 
-# --- BLOCCO PER ANALISI ADATTIVITÀ (Residui) ---
+# --- BLOCCO PER ANALISI ADATTIVITÀ (Quantile) ---
 # Scopo: Salvare punteggi e residui per l'analisi di adattività.
 
 # Step 1: Calcola i residui assoluti sul set di calibrazione.
-calib_preds <- predict(models$f_model, newdata = calib_df)
-calib_residuals <- abs(calib_df[[TARGET_VARIABLE]] - calib_preds)
+# Per la regressione quantile, usiamo come riferimento la distanza dal centro dell'intervallo predetto.
+q_hat_lower_calib <- predict(quantile_models$lower_model, newdata = calib_df)
+q_hat_upper_calib <- predict(quantile_models$upper_model, newdata = calib_df)
+midpoint_calib <- (q_hat_lower_calib + q_hat_upper_calib) / 2
+calib_residuals <- abs(calib_df[[TARGET_VARIABLE]] - midpoint_calib)
 
-# Step 2: Crea un data frame che lega i punteggi ai residui.
+# Step 2: Crea un data frame. I 'non_conf_scores' sono già stati calcolati.
 adaptiveness_data <- data.frame(
   non_conformity_score = non_conf_scores,
   absolute_residual = calib_residuals
 )
 
-# Step 3: Salva il data frame in un file CSV.
+# Step 3: Salva il file.
 adaptiveness_filename <- file.path(TABLES_DIR, "adaptiveness_data_BASESEED_RUN.csv")
 write.csv(adaptiveness_data, adaptiveness_filename, row.names = FALSE)
 
 # --- FINE BLOCCO ---
 
-# Step 3: Salva il data frame in un file CSV.
-adaptiveness_filename <- file.path(TABLES_DIR, "adaptiveness_data_BASESEED_RUN.csv")
-write.csv(adaptiveness_data, adaptiveness_filename, row.names = FALSE)
-
-
 # --- 4.5 Predizione per Singola Esecuzione ---
 # Step 1: Crea gli intervalli di predizione per il set di test della singola esecuzione.
-prediction_intervals <- create_prediction_intervals_scalar(models, test_df, q_hat)
+prediction_intervals <- create_prediction_intervals_quantile(quantile_models, test_df, q_hat)
 
 # --- 4.6 Salvataggio CSV Dettagliato degli Intervalli di Test ---
 # Step 1: Crea un data frame con i risultati dettagliati degli intervalli.
@@ -248,7 +246,6 @@ summary_df <- data.frame(
 summary_filename <- file.path(TABLES_DIR, "summary_BASESEED_RUN.csv")
 write.csv(summary_df, summary_filename, row.names = FALSE)
 
-
 # ---- 4.7.2 Larghezze degli Intervalli a Singola Esecuzione (Riepilogo, Grezze, Istogramma) ----
 
 # Step 1: Crea un data frame riassuntivo delle statistiche di larghezza.
@@ -266,22 +263,6 @@ write.csv(width_summary_df, width_summary_filename, row.names = FALSE)
 # Step 3: Salva i valori grezzi delle larghezze in un file CSV.
 width_raw_filename <- file.path(TABLES_DIR, "widths_raw_BASESEED_RUN.csv")
 write.csv(data.frame(IntervalWidth = intervals_df$IntervalWidth), width_raw_filename, row.names = FALSE)
-
-
-# Step 4: Definisci il percorso del file PNG per l'istogramma delle larghezze.
-width_hist_filename <- file.path(PLOTS_DIR, "histogram_widths_BASESEED_RUN.png")
-# Step 5: Avvia il dispositivo grafico PNG.
-png(width_hist_filename, width = 800, height = 600)
-# Step 6: Traccia l'istogramma delle larghezze degli intervalli.
-hist(intervals_df$IntervalWidth,
-     main = "Distribuzione Larghezza Intervallo (Esecuzione BASE_SEED)",
-     xlab = "Larghezza Intervallo",
-     col = "darkorange",
-     border = "black"
-)
-# Step 7: Chiudi il dispositivo grafico, salvando l'immagine.
-dev.off()
-
 
 # ---- 4.7.3 FSC a Singola Esecuzione (Feature-Stratified Coverage) ----
 
@@ -305,23 +286,6 @@ fsc_results_df <- fsc_df %>%
 fsc_table_filename <- file.path(TABLES_DIR, paste0("fsc_by_", fsc_feature_name, "_BASESEED_RUN.csv"))
 write.csv(fsc_results_df, fsc_table_filename, row.names = FALSE)
 
-
-# Step 6: Definisci il percorso del file PNG per il grafico FSC.
-fsc_plot_filename <- file.path(PLOTS_DIR, paste0("plot_fsc_", fsc_feature_name, "_BASESEED_RUN.png"))
-# Step 7: Avvia il dispositivo grafico PNG.
-png(fsc_plot_filename, width = 800, height = 600)
-# Step 8: Traccia il grafico della copertura condizionale FSC.
-p_fsc <- plot_conditional_coverage(fsc_results_df,
-                                   group_col_name = "feature_group",
-                                   coverage_col_name = "coverage",
-                                   desired_coverage = 1 - ALPHA_CONF,
-                                   main_title = paste0("FSC per ", fsc_feature_name, " (", METHOD_NAME_SUFFIX, ")")
-)
-print(p_fsc)
-# Step 9: Chiudi il dispositivo grafico, salvando l'immagine.
-dev.off()
-
-
 # ---- 4.7.4 SSC a Singola Esecuzione (Set-Stratified Coverage) ----
 
 # Step 1: Crea gruppi basati sulla larghezza dell'intervallo per la stratificazione.
@@ -341,23 +305,6 @@ ssc_results_df <- ssc_df %>%
   dplyr::summarise(coverage = mean(covered, na.rm = TRUE), count = n(), .groups = 'drop') %>%
   dplyr::filter(count > 0)
 
-
 # Step 4: Salva la tabella dei risultati SSC in un file CSV.
 ssc_table_filename <- file.path(TABLES_DIR, "ssc_BASESEED_RUN.csv")
 write.csv(ssc_results_df, ssc_table_filename, row.names = FALSE)
-
-
-# Step 5: Definisci il percorso del file PNG per il grafico SSC.
-ssc_plot_filename <- file.path(PLOTS_DIR, "plot_ssc_BASESEED_RUN.png")
-# Step 6: Avvia il dispositivo grafico PNG.
-png(ssc_plot_filename, width = 800, height = 600)
-# Step 7: Traccia il grafico della copertura condizionale SSC.
-p_ssc <- plot_conditional_coverage(ssc_results_df,
-                                   group_col_name = "size_group",
-                                   coverage_col_name = "coverage",
-                                   desired_coverage = 1 - ALPHA_CONF,
-                                   main_title = paste0("SSC per Larghezza Intervallo (", METHOD_NAME_SUFFIX, ")")
-)
-print(p_ssc)
-# Step 8: Chiudi il dispositivo grafico, salvando l'immagine.
-dev.off()
