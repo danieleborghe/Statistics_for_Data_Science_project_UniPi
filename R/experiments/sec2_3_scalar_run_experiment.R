@@ -21,7 +21,6 @@
 #   3. Analisi e Salvataggio della Distribuzione della Copertura e della Larghezza da N_RUNS:
 #      3.1 Calcolo e Stampa delle Statistiche Riepilogative
 #      3.2 Salvataggio dei Valori Grezzi della Distribuzione
-#      3.3 Tracciamento e Salvataggio dell'Istogramma delle Coperture
 #   4. Valutazione Dettagliata a Singola Esecuzione (utilizzando BASE_SEED):
 #      4.1 Setup per la Singola Esecuzione Dettagliata
 #      4.2 Divisione Dati per la Singola Esecuzione
@@ -152,16 +151,6 @@ write.csv(
   file.path(TABLES_DIR, "coverage_width_distribution.csv"), row.names = FALSE
 )
 
-# --- 3.3 Tracciamento e Salvataggio dell'Istogramma delle Coperture ---
-
-# Step 1: Definisci il percorso del file PNG per l'istogramma.
-png(file.path(PLOTS_DIR, "histogram_marginal_coverage.png"), width = 800, height = 600)
-# Step 2: Traccia l'istogramma delle coperture.
-plot_coverage_histogram(all_empirical_coverages_su, ALPHA_CONF, N_RUNS, "Metodo di Incertezza Scalare")
-# Step 3: Chiudi il dispositivo grafico, salvando l'immagine.
-dev.off()
-
-
 # --- 4. Valutazione Dettagliata a Singola Esecuzione (utilizzando BASE_SEED) ---
 
 # --- 4.1 Setup per Singola Esecuzione Dettagliata ---
@@ -251,7 +240,7 @@ summary_filename <- file.path(TABLES_DIR, "summary_BASESEED_RUN.csv")
 write.csv(summary_df, summary_filename, row.names = FALSE)
 
 
-# ---- 4.7.2 Larghezze degli Intervalli a Singola Esecuzione (Riepilogo, Grezze, Istogramma) ----
+# ---- 4.7.2 Larghezze degli Intervalli a Singola Esecuzione (Riepilogo, Grezze) ----
 
 # Step 1: Crea un data frame riassuntivo delle statistiche di larghezza.
 width_summary_df <- data.frame(
