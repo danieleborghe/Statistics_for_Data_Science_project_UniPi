@@ -22,7 +22,6 @@
 #   3. Analisi e Salvataggio della Distribuzione della Copertura e della Larghezza da N_RUNS:
 #      3.1 Calcolo e Stampa delle Statistiche Riepilogative
 #      3.2 Salvataggio dei Valori Grezzi della Distribuzione
-#      3.3 Tracciamento e Salvataggio dell'Istogramma delle Coperture
 #   4. Valutazione Dettagliata a Singola Esecuzione (utilizzando BASE_SEED):
 #      4.1 Setup per la Singola Esecuzione Dettagliata
 #      4.2 Divisione Dati per la Singola Esecuzione
@@ -237,7 +236,7 @@ summary_filename <- file.path(TABLES_DIR, "summary_BASESEED_RUN.csv")
 write.csv(summary_df, summary_filename, row.names = FALSE)
 
 
-# ---- 4.7.2 Larghezze degli Intervalli a Singola Esecuzione (Riepilogo, Grezze, Istogramma) ----
+# ---- 4.7.2 Larghezze degli Intervalli a Singola Esecuzione (Riepilogo, Grezze) ----
 
 # Step 1: Crea un data frame riassuntivo delle statistiche di larghezza.
 width_summary_df <- data.frame(
