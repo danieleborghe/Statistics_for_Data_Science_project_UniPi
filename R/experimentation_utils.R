@@ -9,11 +9,12 @@
 #   - load_iris_for_classification(...): Carica e prepara il dataset Iris per la classificazione.
 #   - load_iris_for_regression(...): Carica e prepara il dataset Iris per la regressione.
 #   - train_svm_classification_model(...): Addestra un modello SVM per la classificazione.
-#   - predict_svm_probabilities(...): Predice le probabilità di classe da un modello SVM addestrato.
-#   - save_detailed_test_predictions(...): Salva un CSV dettagliato delle predizioni di test.
-#   - save_plot_to_png(...)
-#   - save_table_to_csv(...)
-#   - print_summary_statistics(...)
+#   - predict_svm_probabilities(...): Predice le probabilità di classe usando un modello SVM.
+#   - train_svm_regression_model(...): Addestra un modello SVM per la regressione.
+#   - predict_svm_regression_values(...): Predice valori numerici usando un modello SVM di regressione.
+#   - train_quantile_models(...): Addestra due modelli di regressione quantile per i limiti inferiore e superiore.
+#   - train_primary_and_uncertainty_models(...): Addestra un modello primario e un modello di incertezza (per i residui assoluti).
+#   - train_mean_and_stddev_models(...): Addestra un modello per la media e un modello per la varianza dei residui.
 
 check_and_load_packages <- function(required_packages) {
   # Scopo: Controlla se una lista di pacchetti è installata, installa quelli mancanti
@@ -36,7 +37,6 @@ check_and_load_packages <- function(required_packages) {
     library(pkg, character.only = TRUE)
   }
 }
-
 
 load_iris_for_classification <- function() {
   # Scopo: Carica il dataset Iris incorporato in R, si assicura che 'Species' sia un fattore,
@@ -259,61 +259,4 @@ train_mean_and_stddev_models <- function(formula, training_data, target_variable
   
   # Step 7: Restituisce una lista contenente il modello per la media e quello per la varianza.
   return(list(mean_model = mean_model, variance_model = variance_model))
-}
-
-save_detailed_test_predictions <- function(test_true_labels, prediction_sets_list, test_probs_matrix, output_directory, base_filename) {
-  # Scopo: Crea e salva un file CSV con informazioni dettagliate per ogni campione di test.
-  #
-  # Parametri:
-  #   - test_true_labels: Vettore delle vere etichette di classe per il set di test.
-  #   - prediction_sets_list: Lista dove ogni elemento è un vettore di caratteri (insieme di predizione).
-  #   - test_probs_matrix: Matrice delle probabilità di classe predette per il set di test.
-  #   - output_directory: Il percorso della directory dove verrà salvato il file CSV.
-  #   - base_filename: Il nome base per il file CSV.
-  #
-  # Ritorna: Restituisce in modo invisibile il percorso completo al file salvato, o NULL se il salvataggio è fallito.
-  
-  # Step 1: Prepara per il salvataggio dei risultati dettagliati.
-  
-  # Step 2: Esegue un controllo di coerenza sugli argomenti di input.
-  # Assicura che tutte le liste e matrici abbiano lunghezze/righe corrispondenti.
-  if (length(test_true_labels) != length(prediction_sets_list) ||
-      length(test_true_labels) != nrow(test_probs_matrix)) {
-    stop("ERRORE: Gli argomenti di input per save_detailed_test_predictions hanno lunghezze/righe non corrispondenti.")
-  }
-  
-  # Step 3: Converte le liste di insiemi di predizione in stringhe concatenate per il CSV.
-  # Se un set è vuoto, viene rappresentato da una stringa vuota; altrimenti, gli elementi sono ordinati e uniti da "; ".
-  pred_set_strings <- sapply(prediction_sets_list, function(s) {
-    if (length(s) == 0) "" else paste(sort(s), collapse = "; ")
-  })
-  
-  # Step 4: Crea il data frame dettagliato dei risultati.
-  # Aggiunge un prefisso "Prob_" ai nomi delle colonne di probabilità.
-  detailed_results_df <- as.data.frame(test_probs_matrix)
-  names(detailed_results_df) <- paste0("Prob_", names(detailed_results_df))
-  detailed_results_df <- cbind(
-    data.frame(
-      SampleID = 1:length(test_true_labels),
-      TrueLabel = as.character(test_true_labels),
-      PredictionSet = pred_set_strings
-    ),
-    detailed_results_df
-  )
-  
-  # Step 5: Crea la directory di output se non esiste.
-  # `showWarnings = FALSE` evita avvisi se la directory esiste già.
-  # `recursive = TRUE` crea le sottodirectory necessarie.
-  dir.create(output_directory, showWarnings = FALSE, recursive = TRUE)
-  detailed_filename_path <- file.path(output_directory, base_filename)
-  
-  # Step 6: Tenta di scrivere il data frame in un file CSV.
-  # Utilizza `tryCatch` per gestire gli errori durante il salvataggio.
-  tryCatch({
-    write.csv(detailed_results_df, detailed_filename_path, row.names = FALSE)
-    return(invisible(detailed_filename_path)) # Restituisce il percorso in modo invisibile
-  }, error = function(e) {
-    warning(paste0("WARN: Fallito il salvataggio delle predizioni di test dettagliate. Errore: ", e$message))
-    return(invisible(NULL)) # Restituisce NULL in caso di fallimento
-  })
 }

@@ -27,22 +27,16 @@
 #      4.3 Addestramento Modello per la Singola Esecuzione
 #      4.4 Calibrazione per la Singola Esecuzione
 #      4.5 Predizione per la Singola Esecuzione
-#      4.6 Salvataggio CSV Dettagliato per la Singola Esecuzione
-#      4.7 Valutazione e Salvataggio delle Metriche per la Singola Esecuzione (Copertura, Dimensioni Insiemi, FSC, SSC)
+#      4.6 Valutazione e Salvataggio delle Metriche per la Singola Esecuzione (Copertura, Dimensioni Insiemi, FSC, SSC)
 
 # Sourcing degli script R condivisi.
 source("R/conformal_predictors.R")
 source("R/evaluation_utils.R")
 source("R/experimentation_utils.R")
 
-# --- 0. Setup: Caricamento Librerie ---
-
-# Step 1: Definisci tutti i pacchetti R richiesti per questo script.
+# Caricamento Librerie
 all_required_packages <- c("e1071", "dplyr", "ggplot2")
-# Step 2: Controlla, installa (se necessario) e carica i pacchetti definiti.
 check_and_load_packages(all_required_packages)
-
-# --- 0. Setup: Creazione Directory Risultati ---
 
 # Definisci i nomi delle directory per salvare i risultati.
 RESULTS_DIR <- "results"
@@ -105,7 +99,7 @@ for (run_iter in 1:N_RUNS) {
   # Step 2.3: Definisci la formula SVM (Species come variabile target, '.' per tutte le altre feature).
   svm_formula <- Species ~ .
   # Step 2.4: Addestra il modello SVM sui dati di addestramento dell'iterazione corrente.
-  svm_model_iter <- train_svm_model(svm_formula, train_df_iter)
+  svm_model_iter <- train_svm_classification_model(svm_formula, train_df_iter)
   
   # ------ Iterazione: Calibrazione ------
   
@@ -153,7 +147,6 @@ coverage_dist_filename <- file.path(TABLES_DIR, "coverage_distribution_basic.csv
 # Step 3: Salva il data frame in un file CSV.
 write.csv(coverage_distribution_df_basic, coverage_dist_filename, row.names = FALSE)
 
-
 # --- 4. Valutazione Dettagliata a Singola Esecuzione (utilizzando BASE_SEED per la riproducibilità) ---
 
 # --- 4.1 Setup per Singola Esecuzione Dettagliata ---
@@ -176,7 +169,7 @@ single_run_test_df <- single_run_data[(n_train_loop + n_calib_loop + 1):n_total,
 # --- 4.3 Addestramento Modello per Singola Esecuzione ---
 
 # Addestra il modello SVM sul set di addestramento della singola esecuzione.
-single_run_svm_model <- train_svm_model(svm_formula, single_run_train_df)
+single_run_svm_model <- train_svm_classification_model(svm_formula, single_run_train_df)
 
 # --- 4.4 Calibrazione per Singola Esecuzione ---
 
@@ -198,33 +191,9 @@ single_run_test_true_labels <- single_run_test_df$Species
 # Step 3: Crea gli insiemi di predizione per il set di test.
 single_run_prediction_sets <- create_prediction_sets_basic(single_run_test_probs, single_run_q_hat_basic)
 
-# --- 4.6 Salvataggio CSV Dettagliato per Singola Esecuzione ---
+# --- 4.6 Valutazione e Salvataggio delle Metriche per Singola Esecuzione (Copertura, Dimensioni Insiemi, FSC, SSC) ---
 
-# Salva le predizioni di test dettagliate in un file CSV.
-save_detailed_test_predictions(
-  test_true_labels = single_run_test_true_labels,
-  prediction_sets_list = single_run_prediction_sets,
-  test_probs_matrix = single_run_test_probs,
-  output_directory = TABLES_DIR,
-  base_filename = "detailed_test_predictions_basic_BASESEED_RUN.csv"
-)
-
-# --- 4.7 Valutazione e Salvataggio delle Metriche per Singola Esecuzione (Copertura, Dimensioni Insiemi, FSC, SSC) ---
-
-# ---- 4.7.1 Copertura Marginale a Singola Esecuzione ----
-
-# Step 1: Calcola la copertura empirica per la singola esecuzione.
-single_run_empirical_cov <- calculate_empirical_coverage(single_run_prediction_sets, single_run_test_true_labels)
-# Step 2: Crea un data frame riassuntivo della copertura.
-single_run_coverage_summary <- data.frame(
-  method = "Basic_Section1_BASESEED_Run", alpha = ALPHA_CONF,
-  target_coverage = 1 - ALPHA_CONF, empirical_coverage = single_run_empirical_cov,
-  q_hat = single_run_q_hat_basic
-)
-# Step 3: Salva il riassunto della copertura in un file CSV.
-write.csv(single_run_coverage_summary, file.path(TABLES_DIR, "coverage_summary_basic_BASESEED_RUN.csv"), row.names = FALSE)
-
-# ---- 4.7.2 Dimensioni Insiemi a Singola Esecuzione ----
+# ---- 4.6.1 Dimensioni Insiemi a Singola Esecuzione ----
 
 # Step 1: Ottieni le dimensioni degli insiemi di predizione.
 single_run_set_sizes <- get_set_sizes(single_run_prediction_sets)
@@ -240,7 +209,7 @@ single_run_set_size_summary_df <- data.frame(
 write.csv(single_run_set_size_summary_df, file.path(TABLES_DIR, "set_size_summary_basic_BASESEED_RUN.csv"), row.names = FALSE)
 write.csv(data.frame(set_size = single_run_set_sizes), file.path(TABLES_DIR, "set_sizes_raw_basic_BASESEED_RUN.csv"), row.names = FALSE)
 
-# ---- 4.7.3 FSC a Singola Esecuzione ----
+# ---- 4.6.2 FSC a Singola Esecuzione ----
 
 # Step 1: Definisci il nome della feature per l'analisi FSC (Feature-conditional Coverage).
 single_run_fsc_feature_name <- "Sepal.Length"
@@ -252,7 +221,7 @@ single_run_fsc_results <- calculate_fsc(single_run_prediction_sets, single_run_t
 # Step 3: Salva la tabella dei risultati FSC in un file CSV.
 write.csv(single_run_fsc_results$coverage_by_group, file.path(TABLES_DIR, paste0("fsc_by_", single_run_fsc_feature_name, "_basic_BASESEED_RUN.csv")), row.names = FALSE)
 
-# ---- 4.7.4 SSC a Singola Esecuzione ----
+# ---- 4.6.3 SSC a Singola Esecuzione ----
 
 # Step 1: Calcola il numero di bin per l'analisi SSC (Set-size conditional Coverage).
 single_run_ssc_bins <- max(1, min(length(unique(single_run_set_sizes)), length(levels(iris_data_full$Species))))

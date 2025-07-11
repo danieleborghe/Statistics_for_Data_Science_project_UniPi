@@ -16,7 +16,7 @@
 #      - Aggiunge una linea di tendenza (smoothing) per visualizzare meglio la correlazione.
 #      - Salva il grafico finale.
 
-# --- 0. Setup: Sourcing e Librerie ---
+# Setup: Sourcing e Librerie
 source("R/experimentation_utils.R")
 
 all_required_packages <- c("dplyr", "ggplot2", "viridis")
@@ -61,15 +61,15 @@ adaptiveness_plot <- ggplot(
     y = "Absolute Prediction Error (Residual)",
   ) +
   scale_color_viridis_d(direction = -1) +
-  theme_light(base_size = 18) + # Aumentato il base_size per il font generale
+  theme_light(base_size = 18) + 
   theme(
-    legend.position = "none", # La legenda non è necessaria grazie ai titoli dei pannelli
-    strip.text = element_text(face = "bold", size = 16), # Aumentato il font dei titoli dei pannelli
-    title = element_text(size = 20, face = "bold"), # Aumentato il font del titolo principale
-    plot.subtitle = element_text(size = 16), # Aumentato il font del sottotitolo
-    plot.caption = element_text(size = 12), # Aumentato il font della didascalia
-    axis.title = element_text(size = 16), # Aumentato il font dei titoli degli assi
-    axis.text = element_text(size = 14) # Aumentato il font delle etichette degli assi
+    legend.position = "none",
+    strip.text = element_text(face = "bold", size = 16), 
+    title = element_text(size = 20, face = "bold"), 
+    plot.subtitle = element_text(size = 16), 
+    plot.caption = element_text(size = 12), 
+    axis.title = element_text(size = 16), 
+    axis.text = element_text(size = 14)
   )
 
 # Step 2.2: Salva il grafico.

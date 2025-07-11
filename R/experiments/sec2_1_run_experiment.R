@@ -27,26 +27,23 @@
 #      4.3 Addestramento Modello per la Singola Esecuzione
 #      4.4 Calibrazione per la Singola Esecuzione (Punteggi Adattivi)
 #      4.5 Predizione per la Singola Esecuzione (Set Adattivi)
-#      4.6 Salvataggio CSV Dettagliato delle Predizioni per la Singola Esecuzione
-#      4.7 Valutazione e Salvataggio di Tutte le Metriche per la Singola Esecuzione:
+#      4.6 Valutazione e Salvataggio di Tutte le Metriche per la Singola Esecuzione:
 
 # Sourcing degli script R condivisi.
 source("R/conformal_predictors.R")
 source("R/evaluation_utils.R")
 source("R/experimentation_utils.R")
 
-
-# --- 0. Setup: Caricamento Librerie ---
+# Caricamento Librerie
 all_required_packages <- c("e1071", "dplyr", "ggplot2")
 check_and_load_packages(all_required_packages)
 
-# --- 0. Setup: Creazione Directory Risultati ---
+# Setup: Creazione Directory Risultati
 RESULTS_DIR <- "results"
 METHOD_NAME_SUFFIX <- "section2_1_adaptive"
 TABLES_DIR <- file.path(RESULTS_DIR, "tables", METHOD_NAME_SUFFIX)
 
 dir.create(TABLES_DIR, showWarnings = FALSE, recursive = TRUE)
-
 
 # --- 1. Impostazioni Esperimento ---
 
@@ -58,7 +55,6 @@ ALPHA_CONF <- 0.1
 PROP_TRAIN <- 0.7
 PROP_CALIB <- 0.1
 N_RUNS <- 100
-
 
 # --- 2. Esecuzioni Multiple per la Distribuzione della Copertura Marginale ---
 
@@ -85,7 +81,6 @@ for (run_iter in 1:N_RUNS) {
   # Imposta un seed unico per ogni iterazione per garantire la riproducibilità di ogni divisione.
   current_run_seed <- BASE_SEED + run_iter
   set.seed(current_run_seed)
-  
   
   # ------ Iterazione X: Divisione Dati ------
   
@@ -195,35 +190,9 @@ single_run_test_true_labels <- single_run_test_df$Species
 # Step 3: Crea gli insiemi di predizione adattivi per il set di test.
 single_run_prediction_sets <- create_prediction_sets_adaptive(single_run_test_probs, single_run_q_hat_adaptive)
 
-# --- 4.6 Salvataggio CSV Dettagliato delle Predizioni per Singola Esecuzione ---
+# --- 4.6 Valutazione e Salvataggio di Tutte le Metriche per Singola Esecuzione ---
 
-# Step 1: Salva le predizioni di test dettagliate in un file CSV.
-save_detailed_test_predictions(
-  test_true_labels = single_run_test_true_labels,
-  prediction_sets_list = single_run_prediction_sets,
-  test_probs_matrix = single_run_test_probs,
-  output_directory = TABLES_DIR,
-  base_filename = "detailed_test_predictions_adaptive_BASESEED_RUN.csv"
-)
-
-# --- 4.7 Valutazione e Salvataggio di Tutte le Metriche per Singola Esecuzione ---
-
-# ---- 4.7.1 Copertura Marginale a Singola Esecuzione ----
-
-# Step 1: Calcola la copertura empirica per la singola esecuzione.
-single_run_empirical_cov <- calculate_empirical_coverage(single_run_prediction_sets, single_run_test_true_labels)
-
-# Step 2: Crea un data frame riassuntivo della copertura.
-single_run_coverage_summary <- data.frame(
-  method = "Adaptive_Section2.1_BASESEED_Run", alpha = ALPHA_CONF,
-  target_coverage = 1 - ALPHA_CONF, empirical_coverage = single_run_empirical_cov,
-  q_hat = single_run_q_hat_adaptive
-)
-# Step 3: Salva il riassunto della copertura in un file CSV.
-write.csv(single_run_coverage_summary, file.path(TABLES_DIR, "coverage_summary_adaptive_BASESEED_RUN.csv"), row.names = FALSE)
-
-
-# ---- 4.7.2 Dimensioni Insiemi a Singola Esecuzione (Riepilogo, Grezzi) ----
+# ---- 4.6.1 Dimensioni Insiemi a Singola Esecuzione (Riepilogo, Grezzi) ----
 
 # Step 1: Ottieni le dimensioni degli insiemi di predizione.
 single_run_set_sizes <- get_set_sizes(single_run_prediction_sets)
@@ -241,7 +210,7 @@ single_run_set_size_summary_df <- data.frame(
 write.csv(single_run_set_size_summary_df, file.path(TABLES_DIR, "set_size_summary_adaptive_BASESEED_RUN.csv"), row.names = FALSE)
 write.csv(data.frame(set_size = single_run_set_sizes), file.path(TABLES_DIR, "set_sizes_raw_adaptive_BASESEED_RUN.csv"), row.names = FALSE)
 
-# ---- 4.7.3 FSC a Singola Esecuzione (Tabella, Grafico) ----
+# ---- 4.6.2 FSC a Singola Esecuzione (Tabella, Grafico) ----
 
 # Step 1: Definisci il nome della feature per l'analisi FSC (Feature-conditional Coverage).
 single_run_fsc_feature_name <- "Sepal.Length"
@@ -253,7 +222,7 @@ single_run_fsc_results <- calculate_fsc(single_run_prediction_sets, single_run_t
 # Step 3: Salva la tabella dei risultati FSC in un file CSV.
 write.csv(single_run_fsc_results$coverage_by_group, file.path(TABLES_DIR, paste0("fsc_by_", single_run_fsc_feature_name, "_adaptive_BASESEED_RUN.csv")), row.names = FALSE)
 
-# ---- 4.7.4 SSC a Singola Esecuzione ----
+# ---- 4.6.3 SSC a Singola Esecuzione ----
 
 # Step 1: Calcola il numero di bin per l'analisi SSC (Set-size conditional Coverage).
 single_run_ssc_bins <- max(1, min(length(unique(single_run_set_sizes)), length(levels(iris_data_full$Species))))

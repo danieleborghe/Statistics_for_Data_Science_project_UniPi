@@ -26,25 +26,21 @@
 #      4.2 Divisione Dati per la Singola Esecuzione
 #      4.3 Addestramento Modello per la Singola Esecuzione
 #      4.4 Calibrazione per la Singola Esecuzione
-#      4.5 Predizione per la Singola Esecuzione
-#      4.6 Salvataggio CSV Dettagliato degli Intervalli di Test
-#      4.7 Valutazione e Salvataggio di Tutte le Metriche per la Singola Esecuzione:
+#      4.6 Predizione per la Singola Esecuzione
+#      4.7 Salvataggio CSV Dettagliato degli Intervalli di Test
+#      4.8 Valutazione e Salvataggio di Tutte le Metriche per la Singola Esecuzione:
 
-# --- 0. Setup: Sourcing e Librerie ---
-# Step 1: Carica le funzioni di utilità e predizione necessarie per l'esperimento.
+# Sourcing e Librerie
 source("R/conformal_predictors.R")
 source("R/evaluation_utils.R")
 source("R/experimentation_utils.R")
 
 
-# --- 0. Setup: Caricamento Librerie ---
-# Step 1: Definisci tutti i pacchetti R richiesti per questo script.
+# Caricamento Librerie
 all_required_packages <- c("e1071", "dplyr", "ggplot2", "quantreg")
-# Step 2: Controlla, installa (se necessario) e carica i pacchetti definiti.
 check_and_load_packages(all_required_packages)
 
-# --- 0. Setup: Creazione Directory Risultati ---
-# Step 1: Definisci i nomi delle directory per salvare i risultati.
+# Creazione Directory Risultati
 RESULTS_DIR <- "results"
 METHOD_NAME_SUFFIX <- "section2_3_scalar_uncert"
 TABLES_DIR <- file.path(RESULTS_DIR, "tables", METHOD_NAME_SUFFIX)
@@ -70,21 +66,25 @@ REG_FORMULA <- as.formula(paste(TARGET_VARIABLE, "~ ."))
 
 
 # --- 2. Esecuzioni Multiple per la Distribuzione della Copertura e della Larghezza ---
+
 # Step 1: Inizializza vettori numerici per memorizzare le coperture empiriche e le larghezze medie di ogni esecuzione.
 all_empirical_coverages_su <- numeric(N_RUNS)
 all_avg_widths_su <- numeric(N_RUNS)
 
 
 # --- 2.1 Caricamento Completo del Dataset (una volta) ---
+
 iris_data_full <- load_iris_for_regression()
 n_total <- nrow(iris_data_full) # Ottieni il numero totale di campioni nel dataset.
 
 # --- 2.2 Definizione Parametri di Divisione Dati Specifici per il Ciclo ---
+
 n_train_loop <- floor(PROP_TRAIN * n_total)
 n_calib_loop <- floor(PROP_CALIB * n_total)
 n_test_loop <- n_total - n_train_loop - n_calib_loop
 
 # --- 2.3 Avvio Ciclo N_RUNS ---
+
 for (run_iter in 1:N_RUNS) {
   # Imposta un seed unico per ogni iterazione per garantire la riproducibilità.
   current_run_seed <- BASE_SEED + run_iter
@@ -210,43 +210,9 @@ intervals_df$Covered <- (intervals_df$TrueValue >= intervals_df$LowerBound) & (i
 # Step 4: Salva il data frame dettagliato in un file CSV.
 write.csv(intervals_df, file.path(TABLES_DIR, "detailed_test_intervals_BASESEED_RUN.csv"), row.names = FALSE)
 
-
 # --- 4.8 Valutazione e Salvataggio di Tutte le Metriche per Singola Esecuzione ---
 
-# ---- 4.8.1 Riepilogo Copertura e Larghezza Marginale a Singola Esecuzione ----
-
-# Step 1: Calcola la copertura empirica media per la singola esecuzione.
-single_run_coverage <- mean(intervals_df$Covered, na.rm = TRUE)
-# Step 2: Calcola la larghezza media degli intervalli per la singola esecuzione.
-single_run_avg_width <- mean(intervals_df$IntervalWidth, na.rm = TRUE)
-# Step 3: Crea un data frame riassuntivo delle metriche chiave.
-summary_df <- data.frame(
-  method = METHOD_NAME_SUFFIX, alpha = ALPHA_CONF, target_coverage = 1 - ALPHA_CONF,
-  empirical_coverage = single_run_coverage, avg_width = single_run_avg_width, q_hat = q_hat
-)
-# Step 4: Salva il riepilogo in un file CSV.
-summary_filename <- file.path(TABLES_DIR, "summary_BASESEED_RUN.csv")
-write.csv(summary_df, summary_filename, row.names = FALSE)
-
-# ---- 4.8.2 Larghezze degli Intervalli a Singola Esecuzione (Riepilogo, Grezze) ----
-
-# Step 1: Crea un data frame riassuntivo delle statistiche di larghezza.
-width_summary_df <- data.frame(
-  Min = min(intervals_df$IntervalWidth, na.rm = TRUE),
-  Q1 = quantile(intervals_df$IntervalWidth, 0.25, na.rm = TRUE, names = FALSE),
-  Median = median(intervals_df$IntervalWidth, na.rm = TRUE),
-  Mean = single_run_avg_width,
-  Q3 = quantile(intervals_df$IntervalWidth, 0.75, na.rm = TRUE, names = FALSE),
-  Max = max(intervals_df$IntervalWidth, na.rm = TRUE)
-)
-# Step 2: Salva il riepilogo delle larghezze in un file CSV.
-width_summary_filename <- file.path(TABLES_DIR, "width_summary_BASESEED_RUN.csv")
-write.csv(width_summary_df, width_summary_filename, row.names = FALSE)
-# Step 3: Salva i valori grezzi delle larghezze in un file CSV.
-width_raw_filename <- file.path(TABLES_DIR, "widths_raw_BASESEED_RUN.csv")
-write.csv(data.frame(IntervalWidth = intervals_df$IntervalWidth), width_raw_filename, row.names = FALSE)
-
-# ---- 4.8.3 FSC a Singola Esecuzione (Feature-Stratified Coverage) ----
+# ---- 4.8.1 FSC a Singola Esecuzione (Feature-Stratified Coverage) ----
 
 # Step 1: Definisci il nome della feature per l'analisi FSC.
 fsc_feature_name <- "Sepal.Length"
@@ -265,7 +231,7 @@ fsc_results_df <- fsc_df %>%
 fsc_table_filename <- file.path(TABLES_DIR, paste0("fsc_by_", fsc_feature_name, "_BASESEED_RUN.csv"))
 write.csv(fsc_results_df, fsc_table_filename, row.names = FALSE)
 
-# ---- 4.8.4 SSC a Singola Esecuzione (Set-Stratified Coverage) ----
+# ---- 4.8.2 SSC a Singola Esecuzione (Set-Stratified Coverage) ----
 
 # Step 1: Crea gruppi basati sulla larghezza dell'intervallo per la stratificazione.
 width_groups <- cut(intervals_df$IntervalWidth,

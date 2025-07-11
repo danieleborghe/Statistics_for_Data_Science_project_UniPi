@@ -17,23 +17,17 @@
 #      - Calcola le coperture medie.
 #      - Genera e salva un istogramma comparativo.
 
-# --- 0. Setup: Sourcing e Librerie ---
+# Setup: Sourcing e Librerie
 
-# Step 1: Carica le funzioni di utilità.
 source("R/experimentation_utils.R")
-
-# Step 2: Definisci e carica i pacchetti R richiesti.
 all_required_packages <- c("dplyr", "ggplot2")
 check_and_load_packages(all_required_packages)
 
-# Step 3: Definisci le directory per i risultati comparativi.
 RESULTS_DIR <- "results"
 COMPARATIVE_PLOTS_DIR <- file.path(RESULTS_DIR, "plots")
-
-# Step 4: Crea la directory dei risultati.
 dir.create(COMPARATIVE_PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
 
-# Step 5: Definisci il livello di significatività alpha per il riferimento visuale.
+# Definisci il livello di significatività alpha per il riferimento visuale.
 ALPHA_CONF <- 0.1
 TARGET_COVERAGE <- 1 - ALPHA_CONF
 FONT_SIZE_BASE <- 18
@@ -63,7 +57,7 @@ combined_classification_coverage <- dplyr::bind_rows(
 # Step 1.4: Calcola le frequenze per l'istogramma e le medie.
 classification_freq <- combined_classification_coverage %>%
   dplyr::group_by(method, coverage) %>%
-  dplyr::tally(name = "percentage") # Since N=100, the count is already the percentage.
+  dplyr::tally(name = "percentage") # N=100, quindi il count è già percentuale
 
 classification_means <- combined_classification_coverage %>%
   dplyr::group_by(method) %>%
@@ -96,14 +90,14 @@ plot_classification <- ggplot() +
   theme_light(base_size = FONT_SIZE_BASE) +
   theme(
     legend.position = "bottom",
-    axis.text.x = element_text(angle = 45, hjust = 1, size = FONT_SIZE_BASE - 2), # Adjusted for readability
+    axis.text.x = element_text(angle = 45, hjust = 1, size = FONT_SIZE_BASE - 2),
     axis.title = element_text(size = FONT_SIZE_BASE + 2),
     plot.title = element_text(size = FONT_SIZE_BASE + 4, face = "bold"),
     plot.subtitle = element_text(size = FONT_SIZE_BASE),
     plot.caption = element_text(size = FONT_SIZE_BASE - 4)
   ) +
-  scale_fill_brewer(palette = "Blues") + # Changed to Blues palette
-  scale_color_brewer(palette = "Blues") # Changed to Blues palette
+  scale_fill_brewer(palette = "Blues") +
+  scale_color_brewer(palette = "Blues")
 
 
 # Step 1.6: Salva il grafico.
@@ -164,7 +158,7 @@ plot_regression <- ggplot() +
   theme_light(base_size = FONT_SIZE_BASE) +
   theme(
     legend.position = "bottom",
-    axis.text.x = element_text(angle = 45, hjust = 1, size = FONT_SIZE_BASE - 2), # Adjusted for readability
+    axis.text.x = element_text(angle = 45, hjust = 1, size = FONT_SIZE_BASE - 2),
     axis.title = element_text(size = FONT_SIZE_BASE + 2),
     plot.title = element_text(size = FONT_SIZE_BASE + 4, face = "bold"),
     plot.subtitle = element_text(size = FONT_SIZE_BASE),

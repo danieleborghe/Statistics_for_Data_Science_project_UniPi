@@ -15,7 +15,7 @@
 #   - calculate_fsc(...): Calcola la Copertura Stratificata per Feature.
 #   - calculate_ssc(...): Calcola la Copertura Stratificata per Dimensione dell'Insieme.
 
-# --- Funzioni Helper per calculate_fsc e calculate_ssc ---
+# --- Funzioni Helper per calculate_fsc e calculate_ssc per la classificazione---
 
 prepare_evaluation_dataframe <- function(prediction_sets_list, true_labels_test) {
   # Scopo: Prepara il data frame di base per la valutazione della copertura,
@@ -95,7 +95,6 @@ calculate_coverage_and_count_by_group <- function(df_eval_with_groups, group_col
   return(coverage_by_group_df)
 }
 
-
 # --- Sezione 4.1: Controlli di Base ---
 calculate_empirical_coverage <- function(prediction_sets_list, true_labels_test) {
   # Scopo: Calcola la copertura marginale empirica degli insiemi di predizione.
@@ -140,7 +139,7 @@ get_set_sizes <- function(prediction_sets_list) {
   return(set_sizes)
 }
 
-# --- Sezione 4.2: Valutazione dell'Adattività ---
+# --- Sezione 4.2: Valutazione dell'Adattività per la classificazione ---
 calculate_fsc <- function(prediction_sets_list, true_labels_test, feature_vector,
                           feature_name = "Feature", num_bins_for_continuous = 5) {
   # Scopo: Calcola la Copertura Stratificata per Feature (FSC).
