@@ -30,6 +30,7 @@
 #      4.7 Valutazione e Salvataggio di Tutte le Metriche per la Singola Esecuzione:
 
 # --- 0. Setup: Sourcing e Librerie ---
+
 # Step 1: Carica le funzioni di utilità e predizione necessarie per l'esperimento.
 source("R/conformal_predictors.R")
 source("R/evaluation_utils.R")
@@ -37,22 +38,18 @@ source("R/experimentation_utils.R")
 
 
 # --- 0. Setup: Caricamento Librerie ---
+
 # Step 1: Definisci tutti i pacchetti R richiesti per questo script.
 all_required_packages <- c("e1071", "dplyr", "ggplot2", "quantreg")
 # Step 2: Controlla, installa (se necessario) e carica i pacchetti definiti.
 check_and_load_packages(all_required_packages)
 
 # --- 0. Setup: Creazione Directory Risultati ---
-# Step 1: Definisci i nomi delle directory per salvare i risultati.
+
+# Definisci i nomi delle directory per salvare i risultati.
 RESULTS_DIR <- "results"
 METHOD_NAME_SUFFIX <- "section2_2_quantile_reg"
-PLOTS_DIR <- file.path(RESULTS_DIR, "plots", METHOD_NAME_SUFFIX)
 TABLES_DIR <- file.path(RESULTS_DIR, "tables", METHOD_NAME_SUFFIX)
-
-# Step 2: Crea le directory dei risultati.
-# `showWarnings = FALSE` evita avvisi se le directory esistono già.
-# `recursive = TRUE` crea le sottodirectory necessarie.
-dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
 dir.create(TABLES_DIR, showWarnings = FALSE, recursive = TRUE)
 
 
@@ -62,30 +59,31 @@ dir.create(TABLES_DIR, showWarnings = FALSE, recursive = TRUE)
 BASE_SEED <- 42
 # Step 2: Definisci il livello di significatività (alpha) per la predizione conforme.
 ALPHA_CONF <- 0.1
-# Step 3: Definisci la proporzione dei dati per l'addestramento.
+# Step 3: Definisci la proporzione dei dati
 PROP_TRAIN <- 0.7
-# Step 4: Definisci la proporzione dei dati per la calibrazione.
 PROP_CALIB <- 0.1
-# Step 5: Definisci il numero di esecuzioni per generare la distribuzione.
 N_RUNS <- 100
-# Step 6: Definisci la variabile target per la regressione.
+# Step 4: Definisci la variabile target per la regressione.
 TARGET_VARIABLE <- "Petal.Length"
-# Step 7: Definisci la formula di regressione.
+# Step 5: Definisci la formula di regressione.
 REG_FORMULA <- as.formula(paste(TARGET_VARIABLE, "~ ."))
 
 
 # --- 2. Esecuzioni Multiple per la Distribuzione della Copertura e della Larghezza ---
-# Step 1: Inizializza vettori numerici per memorizzare le coperture empiriche e le larghezze medie di ogni esecuzione.
+
+# Inizializza vettori numerici per memorizzare le coperture empiriche e le larghezze medie di ogni esecuzione.
 all_empirical_coverages_qr <- numeric(N_RUNS)
 all_avg_widths_qr <- numeric(N_RUNS)
 
 
 # --- 2.1 Caricamento Completo del Dataset (una volta) ---
-# Step 1: Carica il dataset Iris completo, preparato per la regressione.
+
+# Carica il dataset Iris completo, preparato per la regressione.
 iris_data_full <- load_iris_for_regression()
 n_total <- nrow(iris_data_full) # Ottieni il numero totale di campioni nel dataset.
 
 # --- 2.2 Definizione Parametri di Divisione Dati Specifici per il Ciclo ---
+
 # Step 1: Calcola il numero di campioni per i set di addestramento, calibrazione e test.
 n_train_loop <- floor(PROP_TRAIN * n_total)
 n_calib_loop <- floor(PROP_CALIB * n_total)
@@ -94,12 +92,13 @@ n_test_loop <- n_total - n_train_loop - n_calib_loop
 
 # --- 2.3 Avvio Ciclo N_RUNS ---
 for (run_iter in 1:N_RUNS) {
-  # Step 1: Imposta un seed unico per ogni iterazione per garantire la riproducibilità.
+  # Imposta un seed unico per ogni iterazione per garantire la riproducibilità.
   current_run_seed <- BASE_SEED + run_iter
   set.seed(current_run_seed)
   
   
   # ------ Iterazione X: Divisione Dati ------
+  
   # Step 1: Rimescola gli indici del dataset per creare una nuova divisione per l'esecuzione corrente.
   shuffled_indices <- sample(n_total)
   # Step 2: Dividi il dataset rimescolato in set di addestramento, calibrazione e test.
@@ -108,20 +107,24 @@ for (run_iter in 1:N_RUNS) {
   test_df_iter <- iris_data_full[shuffled_indices[(n_train_loop + n_calib_loop + 1):n_total], ]
   
   # ------ Iterazione X: Addestramento Modello ------
-  # Step 1: Addestra i modelli di regressione quantile (limite inferiore e superiore) sui dati di addestramento.
+  
+  # Addestra i modelli di regressione quantile (limite inferiore e superiore) sui dati di addestramento.
   quantile_models_iter <- train_quantile_models(REG_FORMULA, train_df_iter, alpha = ALPHA_CONF)
   
   # ------ Iterazione X: Calibrazione ------
+  
   # Step 1: Calcola i punteggi di non-conformità per la regressione quantile sui dati di calibrazione.
   non_conf_scores_iter <- get_non_conformity_scores_quantile(quantile_models_iter, calib_df_iter, TARGET_VARIABLE)
   # Step 2: Calcola il valore $q_{hat}$ basato sui punteggi di non-conformità.
   q_hat_iter <- calculate_q_hat(non_conf_scores_iter, ALPHA_CONF, n_calib = nrow(calib_df_iter))
   
   # ------ Iterazione X: Predizione ------
-  # Step 1: Crea gli intervalli di predizione per il set di test utilizzando i modelli e il $q_{hat}$.
+  
+  # Crea gli intervalli di predizione per il set di test utilizzando i modelli e il $q_{hat}$.
   prediction_intervals_iter <- create_prediction_intervals_quantile(quantile_models_iter, test_df_iter, q_hat_iter)
   
   # ------ Iterazione X: Memorizzazione Metriche ------
+  
   # Step 1: Estrai i veri valori della variabile target dal set di test.
   test_true_values_iter <- test_df_iter[[TARGET_VARIABLE]]
   # Step 2: Calcola la copertura empirica per l'iterazione corrente.
@@ -134,6 +137,7 @@ for (run_iter in 1:N_RUNS) {
 # --- 3. Analisi e Salvataggio della Distribuzione della Copertura e della Larghezza da N_RUNS ---
 
 # --- 3.1 Calcolo e Stampa delle Statistiche Riepilogative ---
+
 # Step 1: Calcola la media e la deviazione standard della copertura empirica.
 mean_coverage <- mean(all_empirical_coverages_qr, na.rm = TRUE)
 sd_coverage <- sd(all_empirical_coverages_qr, na.rm = TRUE)
@@ -142,6 +146,7 @@ mean_width <- mean(all_avg_widths_qr, na.rm = TRUE)
 
 
 # --- 3.2 Salvataggio dei Valori Grezzi della Distribuzione ---
+
 # Step 1: Crea un data frame contenente i risultati di copertura e larghezza per ogni esecuzione.
 # Step 2: Salva il data frame in un file CSV.
 write.csv(
@@ -176,8 +181,7 @@ non_conf_scores <- get_non_conformity_scores_quantile(quantile_models, calib_df,
 q_hat <- calculate_q_hat(non_conf_scores, ALPHA_CONF, n_calib = nrow(calib_df))
 
 
-# --- BLOCCO PER ANALISI ADATTIVITÀ (Quantile) ---
-# Scopo: Salvare punteggi e residui per l'analisi di adattività.
+# --- 4.5 Analisi adattività ---
 
 # Step 1: Calcola i residui assoluti sul set di calibrazione.
 # Per la regressione quantile, usiamo come riferimento la distanza dal centro dell'intervallo predetto.
@@ -196,13 +200,11 @@ adaptiveness_data <- data.frame(
 adaptiveness_filename <- file.path(TABLES_DIR, "adaptiveness_data_BASESEED_RUN.csv")
 write.csv(adaptiveness_data, adaptiveness_filename, row.names = FALSE)
 
-# --- FINE BLOCCO ---
-
-# --- 4.5 Predizione per Singola Esecuzione ---
+# --- 4.6 Predizione per Singola Esecuzione ---
 # Step 1: Crea gli intervalli di predizione per il set di test della singola esecuzione.
 prediction_intervals <- create_prediction_intervals_quantile(quantile_models, test_df, q_hat)
 
-# --- 4.6 Salvataggio CSV Dettagliato degli Intervalli di Test ---
+# --- 4.7 Salvataggio CSV Dettagliato degli Intervalli di Test ---
 # Step 1: Crea un data frame con i risultati dettagliati degli intervalli.
 intervals_df <- data.frame(
   SampleID = 1:nrow(test_df),
@@ -218,7 +220,7 @@ intervals_df$Covered <- (intervals_df$TrueValue >= intervals_df$LowerBound) & (i
 write.csv(intervals_df, file.path(TABLES_DIR, "detailed_test_intervals_BASESEED_RUN.csv"), row.names = FALSE)
 
 
-# --- 4.7 Valutazione e Salvataggio di Tutte le Metriche per Singola Esecuzione ---
+# --- 4.8 Valutazione e Salvataggio di Tutte le Metriche per Singola Esecuzione ---
 
 # ---- 4.7.1 Riepilogo Copertura e Larghezza Marginale a Singola Esecuzione ----
 # Step 1: Calcola la copertura empirica media per la singola esecuzione.
@@ -258,8 +260,6 @@ write.csv(data.frame(IntervalWidth = intervals_df$IntervalWidth), width_raw_file
 
 # Step 1: Definisci il nome della feature per l'analisi FSC.
 fsc_feature_name <- "Sepal.Length"
-
-
 # Step 2: Crea gruppi basati sulla feature per la stratificazione.
 feature_groups <- cut(test_df[[fsc_feature_name]], breaks = 4, include.lowest = TRUE, ordered_result = TRUE)
 # Step 3: Combina i gruppi delle feature con lo stato di copertura.

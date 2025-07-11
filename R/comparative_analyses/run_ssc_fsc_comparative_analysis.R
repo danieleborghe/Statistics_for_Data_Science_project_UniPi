@@ -29,7 +29,7 @@ lapply(all_required_packages, require, character.only = TRUE)
 
 # Define directories for results.
 RESULTS_DIR <- "results"
-COMPARATIVE_PLOTS_DIR <- file.path(RESULTS_DIR, "plots", "comparative_analysis")
+COMPARATIVE_PLOTS_DIR <- file.path(RESULTS_DIR, "plots")
 dir.create(COMPARATIVE_PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
 
 # Define common plot parameters.

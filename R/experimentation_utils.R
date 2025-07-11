@@ -215,7 +215,7 @@ train_primary_and_uncertainty_models <- function(formula, training_data, target_
   u_formula_str <- paste("abs_residual ~ . -", target_variable_name)
   
   # Step 5: Addestra il modello di incertezza ($u_{hat}$) usando la nuova funzione dedicata.
-  u_model <- train_svm_regression_model(as.formula(u_formula_str), data = u_train_data)
+  u_model <- train_svm_regression_model(as.formula(u_formula_str), training_data = u_train_data)
   
   # Step 6: Restituisce una lista contenente il modello primario e il modello di incertezza.
   return(list(f_model = f_model, u_model = u_model))
@@ -255,7 +255,7 @@ train_mean_and_stddev_models <- function(formula, training_data, target_variable
   
   # Step 6: Addestra il modello per la varianza dell'errore (`variance_model`).
   # Questo modello apprende a predire la varianza basandosi sui regressori.
-  variance_model <- train_svm_regression_model(as.formula(variance_formula_str), data = variance_train_data)
+  variance_model <- train_svm_regression_model(as.formula(variance_formula_str), training_data = variance_train_data)
   
   # Step 7: Restituisce una lista contenente il modello per la media e quello per la varianza.
   return(list(mean_model = mean_model, variance_model = variance_model))

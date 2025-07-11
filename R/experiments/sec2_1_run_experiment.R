@@ -21,7 +21,6 @@
 #   3. Analisi e Salvataggio della Distribuzione della Copertura Marginale da N_RUNS:
 #      3.1 Calcolo e Stampa delle Statistiche Riepilogative (Media, DS)
 #      3.2 Salvataggio dei Valori Grezzi di Copertura su CSV
-#      3.3 Tracciamento e Salvataggio dell'Istogramma delle Coperture
 #   4. Valutazione Dettagliata a Singola Esecuzione (utilizzando BASE_SEED):
 #      4.1 Setup per la Singola Esecuzione Dettagliata (Imposta BASE_SEED)
 #      4.2 Divisione Dati per la Singola Esecuzione
@@ -31,8 +30,7 @@
 #      4.6 Salvataggio CSV Dettagliato delle Predizioni per la Singola Esecuzione
 #      4.7 Valutazione e Salvataggio di Tutte le Metriche per la Singola Esecuzione:
 
-# Step 0: Sourcing degli script R condivisi.
-# Questo carica le funzioni di utilità e predizione necessarie per l'esperimento.
+# Sourcing degli script R condivisi.
 source("R/conformal_predictors.R")
 source("R/evaluation_utils.R")
 source("R/experimentation_utils.R")
@@ -45,10 +43,8 @@ check_and_load_packages(all_required_packages)
 # --- 0. Setup: Creazione Directory Risultati ---
 RESULTS_DIR <- "results"
 METHOD_NAME_SUFFIX <- "section2_1_adaptive"
-PLOTS_DIR <- file.path(RESULTS_DIR, "plots", METHOD_NAME_SUFFIX)
 TABLES_DIR <- file.path(RESULTS_DIR, "tables", METHOD_NAME_SUFFIX)
 
-dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
 dir.create(TABLES_DIR, showWarnings = FALSE, recursive = TRUE)
 
 
@@ -68,7 +64,6 @@ N_RUNS <- 100
 
 # Inizializza un vettore numerico per memorizzare le coperture empiriche di ogni esecuzione.
 all_empirical_coverages_adaptive <- numeric(N_RUNS)
-
 
 # --- 2.1 Caricamento Completo del Dataset (una volta) ---
 
@@ -157,27 +152,11 @@ coverage_dist_filename <- file.path(TABLES_DIR, "coverage_distribution_adaptive.
 # Step 3: Salva il data frame in un file CSV.
 write.csv(coverage_distribution_df_adaptive, coverage_dist_filename, row.names = FALSE)
 
-
-# --- 3.3 Tracciamento e Salvataggio dell'Istogramma delle Coperture ---
-
-# Step 1: Definisci il percorso del file PNG per l'istogramma.
-coverage_hist_filename <- file.path(PLOTS_DIR, "histogram_marginal_coverage_adaptive.png")
-# Step 2: Avvia il dispositivo grafico PNG.
-png(coverage_hist_filename, width = 800, height = 600)
-# Step 3: Traccia l'istogramma delle coperture.
-plot_coverage_histogram(all_empirical_coverages_adaptive,
-                        alpha_conf = ALPHA_CONF,
-                        n_runs = N_RUNS,
-                        method_name = "Set di Predizione Adattivi"
-)
-# Step 4: Chiudi il dispositivo grafico, salvando l'immagine.
-dev.off()
-
 # --- 4. Valutazione Dettagliata a Singola Esecuzione (utilizzando BASE_SEED per la riproducibilità) ---
 
 # --- 4.1 Setup per Singola Esecuzione Dettagliata (Imposta BASE_SEED) ---
 
-# Step 1: Imposta il seed base per garantire la riproducibilità di questa singola esecuzione.
+# Imposta il seed base per garantire la riproducibilità di questa singola esecuzione.
 set.seed(BASE_SEED)
 
 # --- 4.2 Divisione Dati per Singola Esecuzione ---
@@ -244,7 +223,7 @@ single_run_coverage_summary <- data.frame(
 write.csv(single_run_coverage_summary, file.path(TABLES_DIR, "coverage_summary_adaptive_BASESEED_RUN.csv"), row.names = FALSE)
 
 
-# ---- 4.7.2 Dimensioni Insiemi a Singola Esecuzione (Riepilogo, Grezzi, Istogramma) ----
+# ---- 4.7.2 Dimensioni Insiemi a Singola Esecuzione (Riepilogo, Grezzi) ----
 
 # Step 1: Ottieni le dimensioni degli insiemi di predizione.
 single_run_set_sizes <- get_set_sizes(single_run_prediction_sets)

@@ -47,11 +47,7 @@ check_and_load_packages(all_required_packages)
 # Step 1: Definisci i nomi delle directory per salvare i risultati.
 RESULTS_DIR <- "results"
 METHOD_NAME_SUFFIX <- "section2_3_scalar_uncert"
-PLOTS_DIR <- file.path(RESULTS_DIR, "plots", METHOD_NAME_SUFFIX)
 TABLES_DIR <- file.path(RESULTS_DIR, "tables", METHOD_NAME_SUFFIX)
-
-# Step 2: Crea le directory dei risultati.
-dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
 dir.create(TABLES_DIR, showWarnings = FALSE, recursive = TRUE)
 
 
@@ -93,7 +89,6 @@ for (run_iter in 1:N_RUNS) {
   # Imposta un seed unico per ogni iterazione per garantire la riproducibilità.
   current_run_seed <- BASE_SEED + run_iter
   set.seed(current_run_seed)
-  
   
   # ------ Iterazione X: Divisione Dati ------
   
@@ -144,8 +139,7 @@ mean_width <- mean(all_avg_widths_su, na.rm = TRUE)
 
 # --- 3.2 Salvataggio dei Valori Grezzi della Distribuzione ---
 
-# Step 1: Crea un data frame contenente i risultati di copertura e larghezza per ogni esecuzione.
-# Step 2: Salva il data frame in un file CSV.
+# Crea un data frame contenente i risultati di copertura e larghezza per ogni esecuzione.
 write.csv(
   data.frame(run = 1:N_RUNS, coverage = all_empirical_coverages_su, avg_width = all_avg_widths_su),
   file.path(TABLES_DIR, "coverage_width_distribution.csv"), row.names = FALSE
@@ -155,9 +149,8 @@ write.csv(
 
 # --- 4.1 Setup per Singola Esecuzione Dettagliata ---
 
-# Step 1: Imposta il seed base per garantire la riproducibilità di questa singola esecuzione.
+# Imposta il seed base per garantire la riproducibilità di questa singola esecuzione.
 set.seed(BASE_SEED)
-
 
 # --- 4.2 Divisione Dati per Singola Esecuzione ---
 
@@ -168,10 +161,9 @@ train_df <- iris_data_full[shuffled_indices_single[1:n_train_loop], ]
 calib_df <- iris_data_full[shuffled_indices_single[(n_train_loop + 1):(n_train_loop + n_calib_loop)], ]
 test_df <- iris_data_full[shuffled_indices_single[(n_train_loop + n_calib_loop + 1):n_total], ]
 
-
 # --- 4.3 Addestramento Modello per Singola Esecuzione ---
 
-# Step 1: Addestra il modello primario e il modello di incertezza sui dati di addestramento della singola esecuzione.
+# Addestra il modello primario e il modello di incertezza sui dati di addestramento della singola esecuzione.
 models <- train_primary_and_uncertainty_models(REG_FORMULA, train_df, TARGET_VARIABLE)
 
 # --- 4.4 Calibrazione per Singola Esecuzione ---
@@ -181,9 +173,7 @@ non_conf_scores <- get_non_conformity_scores_scalar(models, calib_df, TARGET_VAR
 # Step 2: Calcola $q_{hat}$ per la singola esecuzione.
 q_hat <- calculate_q_hat(non_conf_scores, ALPHA_CONF, n_calib = nrow(calib_df))
 
-
-# --- BLOCCO PER ANALISI ADATTIVITÀ (Residui) ---
-# Scopo: Salvare punteggi e residui per l'analisi di adattività.
+# --- 4.5 Analisi adattività ---
 
 # Step 1: Calcola i residui assoluti sul set di calibrazione.
 calib_preds <- predict(models$f_model, newdata = calib_df)
@@ -199,13 +189,13 @@ adaptiveness_data <- data.frame(
 adaptiveness_filename <- file.path(TABLES_DIR, "adaptiveness_data_BASESEED_RUN.csv")
 write.csv(adaptiveness_data, adaptiveness_filename, row.names = FALSE)
 
-# --- FINE BLOCCO ---
+# --- 4.6 Predizione per Singola Esecuzione ---
 
-# --- 4.5 Predizione per Singola Esecuzione ---
-# Step 1: Crea gli intervalli di predizione per il set di test della singola esecuzione.
+# Crea gli intervalli di predizione per il set di test della singola esecuzione.
 prediction_intervals <- create_prediction_intervals_scalar(models, test_df, q_hat)
 
-# --- 4.6 Salvataggio CSV Dettagliato degli Intervalli di Test ---
+# --- 4.7 Salvataggio CSV Dettagliato degli Intervalli di Test ---
+
 # Step 1: Crea un data frame con i risultati dettagliati degli intervalli.
 intervals_df <- data.frame(
   SampleID = 1:nrow(test_df),
@@ -221,15 +211,14 @@ intervals_df$Covered <- (intervals_df$TrueValue >= intervals_df$LowerBound) & (i
 write.csv(intervals_df, file.path(TABLES_DIR, "detailed_test_intervals_BASESEED_RUN.csv"), row.names = FALSE)
 
 
-# --- 4.7 Valutazione e Salvataggio di Tutte le Metriche per Singola Esecuzione ---
+# --- 4.8 Valutazione e Salvataggio di Tutte le Metriche per Singola Esecuzione ---
 
-# ---- 4.7.1 Riepilogo Copertura e Larghezza Marginale a Singola Esecuzione ----
+# ---- 4.8.1 Riepilogo Copertura e Larghezza Marginale a Singola Esecuzione ----
+
 # Step 1: Calcola la copertura empirica media per la singola esecuzione.
 single_run_coverage <- mean(intervals_df$Covered, na.rm = TRUE)
 # Step 2: Calcola la larghezza media degli intervalli per la singola esecuzione.
 single_run_avg_width <- mean(intervals_df$IntervalWidth, na.rm = TRUE)
-
-
 # Step 3: Crea un data frame riassuntivo delle metriche chiave.
 summary_df <- data.frame(
   method = METHOD_NAME_SUFFIX, alpha = ALPHA_CONF, target_coverage = 1 - ALPHA_CONF,
@@ -239,8 +228,7 @@ summary_df <- data.frame(
 summary_filename <- file.path(TABLES_DIR, "summary_BASESEED_RUN.csv")
 write.csv(summary_df, summary_filename, row.names = FALSE)
 
-
-# ---- 4.7.2 Larghezze degli Intervalli a Singola Esecuzione (Riepilogo, Grezze) ----
+# ---- 4.8.2 Larghezze degli Intervalli a Singola Esecuzione (Riepilogo, Grezze) ----
 
 # Step 1: Crea un data frame riassuntivo delle statistiche di larghezza.
 width_summary_df <- data.frame(
@@ -258,12 +246,10 @@ write.csv(width_summary_df, width_summary_filename, row.names = FALSE)
 width_raw_filename <- file.path(TABLES_DIR, "widths_raw_BASESEED_RUN.csv")
 write.csv(data.frame(IntervalWidth = intervals_df$IntervalWidth), width_raw_filename, row.names = FALSE)
 
-# ---- 4.7.3 FSC a Singola Esecuzione (Feature-Stratified Coverage) ----
+# ---- 4.8.3 FSC a Singola Esecuzione (Feature-Stratified Coverage) ----
 
 # Step 1: Definisci il nome della feature per l'analisi FSC.
 fsc_feature_name <- "Sepal.Length"
-
-
 # Step 2: Crea gruppi basati sulla feature per la stratificazione.
 feature_groups <- cut(test_df[[fsc_feature_name]], breaks = 4, include.lowest = TRUE, ordered_result = TRUE)
 # Step 3: Combina i gruppi delle feature con lo stato di copertura.
@@ -275,12 +261,11 @@ fsc_results_df <- fsc_df %>%
   dplyr::summarise(coverage = mean(covered, na.rm = TRUE), count = n(), .groups = 'drop') %>%
   dplyr::filter(count > 0)
 
-
 # Step 5: Salva la tabella dei risultati FSC in un file CSV.
 fsc_table_filename <- file.path(TABLES_DIR, paste0("fsc_by_", fsc_feature_name, "_BASESEED_RUN.csv"))
 write.csv(fsc_results_df, fsc_table_filename, row.names = FALSE)
 
-# ---- 4.7.4 SSC a Singola Esecuzione (Set-Stratified Coverage) ----
+# ---- 4.8.4 SSC a Singola Esecuzione (Set-Stratified Coverage) ----
 
 # Step 1: Crea gruppi basati sulla larghezza dell'intervallo per la stratificazione.
 width_groups <- cut(intervals_df$IntervalWidth,
@@ -298,7 +283,6 @@ ssc_results_df <- ssc_df %>%
   dplyr::group_by(size_group, .drop = FALSE) %>%
   dplyr::summarise(coverage = mean(covered, na.rm = TRUE), count = n(), .groups = 'drop') %>%
   dplyr::filter(count > 0)
-
 
 # Step 4: Salva la tabella dei risultati SSC in un file CSV.
 ssc_table_filename <- file.path(TABLES_DIR, "ssc_BASESEED_RUN.csv")

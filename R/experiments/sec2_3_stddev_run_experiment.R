@@ -48,15 +48,8 @@ check_and_load_packages(all_required_packages)
 # Step 1: Definisci i nomi delle directory per salvare i risultati.
 RESULTS_DIR <- "results"
 METHOD_NAME_SUFFIX <- "section2_3_stddev_uncert"
-PLOTS_DIR <- file.path(RESULTS_DIR, "plots", METHOD_NAME_SUFFIX)
 TABLES_DIR <- file.path(RESULTS_DIR, "tables", METHOD_NAME_SUFFIX)
-
-# Step 2: Crea le directory dei risultati.
-# `showWarnings = FALSE` evita avvisi se le directory esistono già.
-# `recursive = TRUE` crea le sottodirectory necessarie.
-dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
 dir.create(TABLES_DIR, showWarnings = FALSE, recursive = TRUE)
-
 
 # --- 1. Impostazioni Esperimento ---
 
@@ -182,7 +175,6 @@ q_hat <- calculate_q_hat(non_conf_scores, ALPHA_CONF, n_calib = nrow(calib_df))
 # Scopo: Salvare punteggi e residui per l'analisi di adattività.
 
 # Step 1: Calcola i residui assoluti sul set di calibrazione.
-# USARE `models$mean_model` che è il nome corretto del modello primario qui.
 calib_preds <- predict(models$mean_model, newdata = calib_df)
 calib_residuals <- abs(calib_df[[TARGET_VARIABLE]] - calib_preds)
 
@@ -199,7 +191,7 @@ write.csv(adaptiveness_data, adaptiveness_filename, row.names = FALSE)
 # --- FINE BLOCCO ---
 
 # --- 4.5 Predizione per Singola Esecuzione ---
-# Step 1: Crea gli intervalli di predizione per il set di test della singola esecuzione.
+# Crea gli intervalli di predizione per il set di test della singola esecuzione.
 prediction_intervals <- create_prediction_intervals_stddev(models, test_df, q_hat)
 
 # --- 4.6 Salvataggio CSV Dettagliato degli Intervalli di Test ---
@@ -258,8 +250,6 @@ write.csv(data.frame(IntervalWidth = intervals_df$IntervalWidth), width_raw_file
 
 # Step 1: Definisci il nome della feature per l'analisi FSC.
 fsc_feature_name <- "Sepal.Length"
-
-
 # Step 2: Crea gruppi basati sulla feature per la stratificazione.
 feature_groups <- cut(test_df[[fsc_feature_name]], breaks = 4, include.lowest = TRUE, ordered_result = TRUE)
 # Step 3: Combina i gruppi delle feature con lo stato di copertura.
