@@ -1,92 +1,143 @@
-# Conformal Prediction for Uncertainty Quantification in R
+# A Deep Dive into Conformal Prediction: Theory, Implementation, and Analysis
 
-## Panoramica del Progetto
+This repository contains the R code, experimental results, and analysis for a research project on **Conformal Prediction (CP)**. The project provides a practical and theoretical exploration of how CP can be used to generate statistically rigorous, distribution-free prediction intervals and sets for both regression and classification tasks.
 
-Questo progetto offre un'implementazione e un'analisi approfondita di diverse tecniche di **Conformal Prediction** (Predizione Conforme), come descritto nell'articolo scientifico _"A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification"_ di Anastasios N. Angelopoulos e Stephen Bates.
-
-Il progetto utilizza il classico dataset **Iris** e implementa i metodi di predizione conforme su modelli **Support Vector Machine (SVM)**, sia per compiti di **classificazione** che di **regressione**.
-
-Il codice è scritto interamente in **R** e si articola in tre fasi principali:
-1.  **Esecuzione di Esperimenti**: Simulazioni multiple (100 run) per ogni metodo, al fine di valutarne la copertura marginale, e un'esecuzione singola dettagliata per analizzare le performance in modo riproducibile.
-2.  **Valutazione delle Performance**: Analisi dei risultati attraverso metriche rigorose come la **Feature-Stratified Coverage (FSC)** e la **Set-size Stratified Coverage (SSC)** per misurare l'adattività dei metodi.
-3.  **Analisi Comparativa**: Creazione di grafici e tabelle per confrontare l'efficienza (dimensione degli insiemi, larghezza degli intervalli) e la robustezza dei diversi approcci.
+The project was developed as part of the "Statistics for Data Science" course at the **University of Pisa (UniPi)**.
 
 ---
 
-## Struttura delle Cartelle
+## 📝 Table of Contents
 
-Il progetto è organizzato in modo modulare per garantire chiarezza e manutenibilità.
+- [The Core Concept: What is Conformal Prediction?](#-the-core-concept-what-is-conformal-prediction)
+- [Project Objectives](#-project-objectives)
+- [Technical Stack & Methodologies](#-technical-stack--methodologies)
+- [Implemented Methods & Experiments](#-implemented-methods--experiments)
+- [Key Findings](#-key-findings)
+- [Repository Structure](#-repository-structure)
+- [How to Run the Experiments](#-how-to-run-the-experiments)
+- [Authors](#-authors)
+
+---
+
+## 🎯 The Core Concept: What is Conformal Prediction?
+
+Traditional machine learning models provide point predictions (e.g., "the price is €100" or "the class is 'spam'"), but they often lack a reliable measure of confidence. Conformal Prediction is a powerful framework that complements any underlying machine learning algorithm (like Random Forest, Neural Networks, etc.) to produce predictions with a user-defined confidence level.
+
+Instead of a single output, a Conformal Predictor (CP) outputs:
+-   **For Regression**: A **prediction interval** (e.g., "the price will be between €90 and €110").
+-   **For Classification**: A **prediction set** of one or more classes (e.g., "{'spam', 'not spam'}" if the model is uncertain, or just "{'not spam'}" if it's confident).
+
+The key guarantee of CP is **validity**: if you specify a confidence level of 95% (or significance level α=0.05), the true value will fall within the prediction interval/set 95% of the time in the long run, regardless of the data distribution.
+
+---
+
+## 💡 Project Objectives
+
+This project aimed to:
+
+1.  **Implement from Scratch** various Conformal Prediction algorithms in R.
+2.  **Empirically Verify** the theoretical property of **validity** (coverage) across different models and datasets.
+3.  **Analyze the Efficiency** of the predictors, measured by the size of the prediction intervals/sets.
+4.  **Investigate Advanced Concepts** like **adaptiveness**, where the prediction intervals automatically adjust their size based on the difficulty of the prediction.
+5.  **Compare** the performance of different non-conformity measures and underlying machine learning models.
+
+---
+
+## 💻 Technical Stack & Methodologies
+
+-   **Language**: **R**
+-   **Core Libraries**:
+    -   **`dplyr`** & **`tidyr`**: For data manipulation and wrangling.
+    -   **`ggplot2`**: For creating all the high-quality data visualizations and plots.
+    -   **`randomForest`**: Used as the underlying algorithm for the non-conformity scores in classification experiments.
+    -   **`quantreg`**: Used for Quantile Regression, a key component in generating adaptive prediction intervals.
+    -   **`knitr`** & **`kableExtra`**: For generating formatted tables from the results.
+-   **Statistical Concepts**:
+    -   **Non-Conformity Measures (NCMs)**: The core of CP. We implemented various NCMs, such as Inverse Probability for classification and Absolute Error for regression.
+    -   **Inductive vs. Transductive CP**: Our focus is on the more computationally efficient Inductive Conformal Prediction (ICP), which uses a calibration set.
+    -   **Conditional Coverage**: We analyzed whether the validity guarantee holds across different subgroups of the data (e.g., for each class in a classification problem).
+
+---
+
+## 🔬 Implemented Methods & Experiments
+
+Our research was structured around a series of experiments designed to test different facets of Conformal Prediction.
+
+-   **Section 1: Basic Conformal Predictors**
+    -   **Task**: Multi-class classification on the `iris` dataset.
+    -   **Method**: Implemented a standard Inductive Conformal Predictor using a Random Forest model.
+    -   **Analysis**: Verified that the empirical coverage matches the desired confidence level. Analyzed the size of prediction sets and investigated conditional coverage per class.
+
+-   **Section 2: Advanced Regression Predictors & Adaptiveness**
+    -   **Task**: Regression on the `BostonHousing` dataset.
+    -   **Methods Implemented**:
+        1.  **Standard CP**: A basic CP using absolute error as the NCM.
+        2.  **Normalized CP**: An improved CP that normalizes the error based on the predicted value's magnitude.
+        3.  **Quantile Regression CP**: A highly adaptive method where the prediction interval width is learned directly from the data using two quantile regression models.
+    -   **Analysis**: Compared the validity and efficiency (average interval width) of all three methods. Conducted a deep dive into adaptiveness by showing how interval sizes correlate with prediction difficulty.
+
+---
+
+## 📈 Key Findings
+
+-   **Validity is Guaranteed**: Across all experiments, our implemented Conformal Predictors successfully achieved the desired long-run coverage, confirming the theoretical guarantees of the framework.
+-   **Adaptiveness is Key for Efficiency**: For regression, the standard CP produced intervals of constant width, which were inefficiently large for easy predictions. The **Quantile Regression-based CP** proved far superior, generating narrow, highly adaptive intervals that were wider only when the model's uncertainty was high.
+-   **Trade-off between Coverage and Precision**: While validity is maintained, the efficiency (size of prediction sets/intervals) depends heavily on the quality of the underlying machine learning model and the chosen non-conformity measure.
+-   **Conditional Coverage is Not Guaranteed**: Standard CPs guarantee average coverage over the entire data distribution, but not necessarily for specific subgroups (e.g., individual classes). Our analysis showed minor deviations in class-conditional coverage, a well-known area of ongoing research in the CP community.
+
+---
+
+## 📂 Repository Structure
+
+```
 
 .
 ├── R/
-│   ├── comparative_analyses/ # Script per analisi comparative tra esperimenti
-│   ├── experiments/          # Script per eseguire i singoli esperimenti
-│   ├── conformal_predictors.R
-│   ├── evaluation_utils.R
-│   └── experimentation_utils.R
+│   ├── conformal\_predictors.R            \# Core functions for CP implementation
+│   ├── evaluation\_utils.R                \# Helper functions for evaluating results
+│   ├── experimentation\_utils.R           \# Helper functions for running experiments
+│   ├── comparative\_analyses/               \# Scripts to generate comparison plots/tables
+│   └── experiments/                      \# Main scripts to run each experiment section
+│       ├── sec1\_run\_experiment.R
+│       └── ...
 ├── results/
-│   ├── tables/               # Tabelle CSV con i risultati grezzi e aggregati
-│   └── plots/                # Grafici e istogrammi comparativi
-├── 26.ConformalPrediction.pdf
-└── README.md
+│   ├── plots/                            \# Output plots from the analyses
+│   └── tables/                           \# Output tables with detailed results
+├── 26.ConformalPrediction.pdf           \# Main theoretical reference document
+├── conformal\_prediction\_project.Rproj   \# RStudio Project file
+└── README.md                            \# This file
 
-### Spiegazione delle Cartelle
-
-* **`/R`**: Contiene tutto il codice sorgente in R.
-    * **`/R/experiments`**: Ogni script in questa cartella esegue un esperimento completo per uno specifico metodo di predizione conforme descritto nel paper.
-    * **`/R/comparative_analyses`**: Contiene gli script che caricano i risultati salvati dagli esperimenti per creare visualizzazioni e analisi comparative.
-* **`/results`**: Contiene tutti gli output generati dagli script.
-    * **`/results/tables`**: Sottocartelle separate per ogni esperimento contenenti file CSV dettagliati, come le distribuzioni di copertura, le dimensioni degli insiemi, i dati per l'analisi di adattività, ecc.
-    * **`/results/plots`**: Grafici (in formato `.png`) che visualizzano i confronti tra i metodi, come istogrammi di copertura e analisi di adattività.
+````
 
 ---
 
-## Spiegazione degli Script
+## 🚀 How to Run the Experiments
 
-### Script di Utilità (`R/`)
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/danieleborghe/statistics_for_data_science_project_unipi.git](https://github.com/danieleborghe/statistics_for_data_science_project_unipi.git)
+    cd statistics_for_data_science_project_unipi
+    ```
 
-Questi script contengono funzioni riutilizzate in tutto il progetto, separando la logica di base dall'esecuzione degli esperimenti.
+2.  **Open the Project in RStudio:**
+    -   The easiest way to work with this project is to open the `conformal_prediction_project.Rproj` file in RStudio. This will automatically set the correct working directory.
 
-* `R/experimentation_utils.R`
-    * **Scopo**: Fornisce funzioni ausiliarie per la gestione degli esperimenti.
-    * **Funzioni Principali**:
-        * `check_and_load_packages()`: Gestisce le dipendenze, installando e caricando i pacchetti R necessari.
-        * `load_iris_for_classification()` / `load_iris_for_regression()`: Caricano e preparano il dataset Iris per i rispettivi task (es. rimozione della colonna `Species` per la regressione).
-        * `train_svm_classification_model()` / `train_svm_regression_model()`: Addestrano i modelli SVM di base.
-        * `predict_svm_probabilities()` / `predict_svm_regression_values()`: Eseguono predizioni utilizzando i modelli SVM addestrati.
-        * Funzioni specializzate come `train_quantile_models()`, `train_primary_and_uncertainty_models()` e `train_mean_and_stddev_models()` per addestrare i modelli specifici richiesti dagli esperimenti di regressione.
+3.  **Install Dependencies:**
+    -   Run the following command in the R console to install all the required packages:
+    ```R
+    install.packages(c("dplyr", "tidyr", "ggplot2", "randomForest", "quantreg", "knitr", "kableExtra"))
+    ```
 
-* `R/conformal_predictors.R`
-    * **Scopo**: Implementa la logica fondamentale dei diversi algoritmi di predizione conforme.
-    * **Funzioni Principali**:
-        * `calculate_q_hat()`: Funzione centrale che calcola il quantile `q_hat` corretto per la dimensione del campione di calibrazione. Questa funzione è condivisa da tutti i metodi.
-        * `get_non_conformity_scores_*()`: Una serie di funzioni, una per ogni metodo (es. `_basic`, `_adaptive`, `_bayes`, `_quantile`), che calcolano i punteggi di non-conformità specifici per quel metodo.
-        * `create_prediction_sets_*()` / `create_prediction_intervals_*()`: Funzioni che, dato un `q_hat`, costruiscono gli insiemi o gli intervalli di predizione finali per i nuovi dati.
+4.  **Run an Experiment:**
+    -   Open one of the main experiment scripts located in the `R/experiments/` directory (e.g., `sec1_run_experiment.R`).
+    -   Source the entire script in RStudio. The script will automatically:
+        -   Load the necessary functions and data.
+        -   Run the Conformal Prediction experiments.
+        -   Save the resulting tables and plots to the `results/` directory.
 
-* `R/evaluation_utils.R`
-    * **Scopo**: Contiene le funzioni per valutare le performance dei predittori conformi, seguendo le metriche della Sezione 4 del paper.
-    * **Funzioni Principali**:
-        * `calculate_empirical_coverage()`: Calcola la copertura marginale (la percentuale di volte in cui il valore vero è contenuto nell'insieme di predizione).
-        * `get_set_sizes()`: Estrae le dimensioni degli insiemi di predizione.
-        * `calculate_fsc()`: Implementa la **Feature-Stratified Coverage**, che valuta se la copertura è mantenuta stratificando i dati in base ai valori di una feature (es. `Sepal.Length`).
-        * `calculate_ssc()`: Implementa la **Set-size Stratified Coverage**, che valuta la copertura stratificando i dati in base alla dimensione dell'insieme di predizione.
+---
 
-### Script degli Esperimenti (`R/experiments/`)
+## 👥 Authors
 
-Questi script sono il cuore esecutivo del progetto. Ognuno è autonomo e dedicato a un singolo metodo.
-
-* `R/experiments/sec1_run_experiment.R`: Esegue l'esperimento per il metodo di **Predizione Conforme Base** (Classificazione).
-* `R/experiments/sec2_1_run_experiment.R`: Esegue l'esperimento per gli **Insiemi di Predizione Adattivi** (Classificazione), che mirano a regolare la dimensione dell'insieme in base alla difficoltà dell'istanza.
-* `R/experiments/sec2_2_run_experiment.R`: Esegue l'esperimento per la **Regressione Quantile Conforme** (Regressione), che calibra gli intervalli predetti da modelli di regressione quantile.
-* `R/experiments/sec2_3_scalar_run_experiment.R`: Esegue l'esperimento di **Incertezza Scalare** (Regressione), dove l'incertezza è modellata da un secondo SVM che predice i residui assoluti del modello primario.
-* `R/experiments/sec2_3_stddev_run_experiment.R`: Simile al precedente, ma l'incertezza è modellata stimando la deviazione standard dell'errore (predicendo i residui al quadrato).
-* `R/experiments/sec2_4_run_experiment.R`: Esegue l'esperimento **Conformalizing Bayes** (Classificazione), che utilizza la densità predittiva a posteriori come score per ottenere insiemi teoricamente ottimali in termini di dimensione.
-
-### Script di Analisi Comparativa (`R/comparative_analyses/`)
-
-Questi script aggregano i risultati dei singoli esperimenti per effettuare confronti diretti.
-
-* `R/comparative_analyses/run_comparative_analysis.R`: Genera istogrammi che confrontano le **distribuzioni di copertura marginale** tra i metodi di classificazione e tra quelli di regressione.
-* `R/comparative_analyses/run_ssc_fsc_comparative_analysis.R`: Crea grafici a barre affiancati che confrontano le metriche di copertura condizionale **FSC** e **SSC** tra i diversi metodi, sia per la classificazione che per la regressione.
-* `R/comparative_analyses/run_width_comparative_analysis.R`: Analizza e visualizza la **distribuzione delle dimensioni degli insiemi di predizione** per i metodi di classificazione, evidenziando le differenze nella loro efficienza.
-* `R/comparative_analyses/run_adaptiveness_analysis.R`: Genera grafici a dispersione per analizzare visivamente l'**adattività** dei metodi di regressione, mettendo in relazione i punteggi di non-conformità con l'errore di predizione assoluto. Una correlazione positiva indica una buona adattività.
+- **Daniele Borghesi**
+- **Nicolas Humberto Montes De Oca Ibañez**
